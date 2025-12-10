@@ -1,28 +1,28 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// ƒQ[ƒ€‘S‘Ì‚Å‹¤—L‚·‚éİ’è’l‚ğŠÇ—‚·‚éƒVƒ“ƒOƒ‹ƒgƒ“B
-/// E–ˆŒ‚Ì‚Â‚İ‚½‚ÄŠz
-/// EƒŠƒXƒNƒ^ƒCƒv
-/// E‘”N”iŠî–{‚Í15”NŒÅ’èj
+/// ã‚²ãƒ¼ãƒ å…¨ä½“ã§å…±æœ‰ã™ã‚‹è¨­å®šå€¤ã‚’ç®¡ç†ã™ã‚‹ã‚·ãƒ³ã‚°ãƒ«ãƒˆãƒ³ã€‚
+/// ãƒ»æ¯æœˆã®ã¤ã¿ãŸã¦é¡
+/// ãƒ»ãƒªã‚¹ã‚¯ã‚¿ã‚¤ãƒ—
+/// ãƒ»ç·å¹´æ•°ï¼ˆåŸºæœ¬ã¯15å¹´å›ºå®šï¼‰
 /// 
-/// TitleScene / SettingsScene ‚È‚Ç‚Å’l‚ğ•ÏX‚µA
-/// SimulationScene ‚â ResultScene ‚©‚çQÆ‚·‚é‘z’èB
+/// TitleScene / SettingsScene ãªã©ã§å€¤ã‚’å¤‰æ›´ã—ã€
+/// SimulationScene ã‚„ ResultScene ã‹ã‚‰å‚ç…§ã™ã‚‹æƒ³å®šã€‚
 /// 
-/// ¦ RiskType enum ‚Í SimulationManager.cs ‚È‚ÇA
-///   Šù‚É’è‹`‚µ‚Ä‚¢‚éêŠ‚Æd•¡‚µ‚È‚¢‚æ‚¤‚É’ˆÓB
+/// â€» RiskType enum ã¯ SimulationManager.cs ãªã©ã€
+///   æ—¢ã«å®šç¾©ã—ã¦ã„ã‚‹å ´æ‰€ã¨é‡è¤‡ã—ãªã„ã‚ˆã†ã«æ³¨æ„ã€‚
 /// </summary>
 public class GameSettings : MonoBehaviour
 {
-    // ====== ƒVƒ“ƒOƒ‹ƒgƒ“ ======
+    // ====== ã‚·ãƒ³ã‚°ãƒ«ãƒˆãƒ³ ======
 
     public static GameSettings Instance { get; private set; }
 
     private void Awake()
     {
-        // ƒVƒ“ƒOƒ‹ƒgƒ“Šm—§
+        // ã‚·ãƒ³ã‚°ãƒ«ãƒˆãƒ³ç¢ºç«‹
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -30,63 +30,63 @@ public class GameSettings : MonoBehaviour
         }
 
         Instance = this;
-        DontDestroyOnLoad(gameObject); // ƒV[ƒ“‚ğ‚Ü‚½‚¢‚Å‚àÁ‚³‚È‚¢
+        DontDestroyOnLoad(gameObject); // ã‚·ãƒ¼ãƒ³ã‚’ã¾ãŸã„ã§ã‚‚æ¶ˆã•ãªã„
     }
 
-    // ====== İ’è’liƒCƒ“ƒXƒyƒNƒ^^UI‚©‚çİ’èj ======
+    // ====== è¨­å®šå€¤ï¼ˆã‚¤ãƒ³ã‚¹ãƒšã‚¯ã‚¿ï¼UIã‹ã‚‰è¨­å®šï¼‰ ======
 
     [Header("Simulation Settings")]
 
     [SerializeField]
-    private int totalYears = 15;       // Šî–{‚Í 15 ”NŒÅ’è
+    private int totalYears = 15;       // åŸºæœ¬ã¯ 15 å¹´å›ºå®š
 
     [SerializeField]
-    private int monthlyAmount = 10000; // ƒfƒtƒHƒ‹ƒg–ˆŒ‚Â‚İ‚½‚ÄŠz
+    private int monthlyAmount = 10000; // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆæ¯æœˆã¤ã¿ãŸã¦é¡
 
     [SerializeField]
-    private RiskType riskType = RiskType.Medium; // ƒfƒtƒHƒ‹ƒg‚Í’†ƒŠƒXƒN
+    private RiskType riskType = RiskType.Medium; // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã¯ä¸­ãƒªã‚¹ã‚¯
 
-    // «—ˆA‘¼‚É‚àİ’è‚ğ‘‚â‚·‚È‚ç‚±‚±‚É’Ç‰Ái—áF‰Šú‘‹à‚È‚Çj
+    // å°†æ¥ã€ä»–ã«ã‚‚è¨­å®šã‚’å¢—ã‚„ã™ãªã‚‰ã“ã“ã«è¿½åŠ ï¼ˆä¾‹ï¼šåˆæœŸè³‡é‡‘ãªã©ï¼‰
 
-    // ====== ŒöŠJƒvƒƒpƒeƒBi“Ç‚İæ‚è—pj ======
+    // ====== å…¬é–‹ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ï¼ˆèª­ã¿å–ã‚Šç”¨ï¼‰ ======
 
     /// <summary>
-    /// ƒVƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“‚·‚é”N”id—l‚Å‚Í15”NjB
-    /// Šî–{“I‚É‚ÍŠO‚©‚ç•ÏX‚µ‚È‚¢B
+    /// ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã™ã‚‹å¹´æ•°ï¼ˆä»•æ§˜ã§ã¯15å¹´ï¼‰ã€‚
+    /// åŸºæœ¬çš„ã«ã¯å¤–ã‹ã‚‰å¤‰æ›´ã—ãªã„ã€‚
     /// </summary>
     public int TotalYears => totalYears;
 
     /// <summary>
-    /// –ˆŒ‚Ì‚Â‚İ‚½‚ÄŠzB
+    /// æ¯æœˆã®ã¤ã¿ãŸã¦é¡ã€‚
     /// </summary>
     public int MonthlyAmount => monthlyAmount;
 
     /// <summary>
-    /// Œ»İ‘I‘ğ‚³‚ê‚Ä‚¢‚éƒŠƒXƒNƒ^ƒCƒvi’áE’†E‚jB
+    /// ç¾åœ¨é¸æŠã•ã‚Œã¦ã„ã‚‹ãƒªã‚¹ã‚¯ã‚¿ã‚¤ãƒ—ï¼ˆä½ãƒ»ä¸­ãƒ»é«˜ï¼‰ã€‚
     /// </summary>
     public RiskType RiskType => riskType;
 
-    // ====== ƒZƒbƒ^[iUI‚©‚ç•ÏX‚·‚é‚Æ‚«—pj ======
+    // ====== ã‚»ãƒƒã‚¿ãƒ¼ï¼ˆUIã‹ã‚‰å¤‰æ›´ã™ã‚‹ã¨ãç”¨ï¼‰ ======
 
     /// <summary>
-    /// –ˆŒ‚Ì‚Â‚İ‚½‚ÄŠz‚ğİ’è‚·‚éB
-    /// SettingsScene ‚ÌƒXƒ‰ƒCƒ_[‚È‚Ç‚©‚çŒÄ‚Ô‘z’èB
+    /// æ¯æœˆã®ã¤ã¿ãŸã¦é¡ã‚’è¨­å®šã™ã‚‹ã€‚
+    /// SettingsScene ã®ã‚¹ãƒ©ã‚¤ãƒ€ãƒ¼ãªã©ã‹ã‚‰å‘¼ã¶æƒ³å®šã€‚
     /// </summary>
     public void SetMonthlyAmount(int amount)
     {
-        // ƒ}ƒCƒiƒX‚È‚Ç‚ª“ü‚ç‚È‚¢‚æ‚¤‚ÉÅ’á’lƒ`ƒFƒbƒN
+        // ãƒã‚¤ãƒŠã‚¹ãªã©ãŒå…¥ã‚‰ãªã„ã‚ˆã†ã«æœ€ä½å€¤ãƒã‚§ãƒƒã‚¯
         if (amount < 0)
         {
             amount = 0;
         }
 
         monthlyAmount = amount;
-        // •K—v‚È‚ç Debug.Log ‚âƒCƒxƒ“ƒg”­‰Î‚à‚±‚±‚Å
+        // å¿…è¦ãªã‚‰ Debug.Log ã‚„ã‚¤ãƒ™ãƒ³ãƒˆç™ºç«ã‚‚ã“ã“ã§
     }
 
     /// <summary>
-    /// ƒŠƒXƒNƒ^ƒCƒv‚ğİ’è‚·‚éB
-    /// ƒhƒƒbƒvƒ_ƒEƒ“‚âƒ{ƒ^ƒ“ŒQ‚©‚çŒÄ‚Ô‘z’èB
+    /// ãƒªã‚¹ã‚¯ã‚¿ã‚¤ãƒ—ã‚’è¨­å®šã™ã‚‹ã€‚
+    /// ãƒ‰ãƒ­ãƒƒãƒ—ãƒ€ã‚¦ãƒ³ã‚„ãƒœã‚¿ãƒ³ç¾¤ã‹ã‚‰å‘¼ã¶æƒ³å®šã€‚
     /// </summary>
     public void SetRiskType(RiskType newRiskType)
     {
@@ -94,8 +94,8 @@ public class GameSettings : MonoBehaviour
     }
 
     /// <summary>
-    /// ƒŠƒXƒNƒ^ƒCƒv‚ğ inti0,1,2j‚©‚çİ’è‚µ‚½‚¢ê‡—pB
-    /// UI‚ÌDropdown‚È‚Ç‚Æ‘Š«‚ª—Ç‚¢B
+    /// ãƒªã‚¹ã‚¯ã‚¿ã‚¤ãƒ—ã‚’ intï¼ˆ0,1,2ï¼‰ã‹ã‚‰è¨­å®šã—ãŸã„å ´åˆç”¨ã€‚
+    /// UIã®Dropdownãªã©ã¨ç›¸æ€§ãŒè‰¯ã„ã€‚
     /// </summary>
     public void SetRiskTypeByIndex(int index)
     {
@@ -117,8 +117,8 @@ public class GameSettings : MonoBehaviour
     }
 
     /// <summary>
-    /// İ’è‚ğ‰Šú’l‚É–ß‚µ‚½‚¢‚Æ‚«—pB
-    /// i•K—v‚È‚¯‚ê‚Îg‚í‚È‚­‚Ä‚àOKj
+    /// è¨­å®šã‚’åˆæœŸå€¤ã«æˆ»ã—ãŸã„ã¨ãç”¨ã€‚
+    /// ï¼ˆå¿…è¦ãªã‘ã‚Œã°ä½¿ã‚ãªãã¦ã‚‚OKï¼‰
     /// </summary>
     public void ResetToDefault()
     {
