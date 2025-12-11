@@ -5,7 +5,13 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 2cda990e2423bbf4892e6590ba056729
+  - enabled: 1
+    path: Assets/NisaGame/Scenes/TitleScene.unity
+    guid: 33fc9858de59e344ebc9d274636b6e15
+  - enabled: 1
+    path: Assets/NisaGame/Scenes/SimulationScene.unity
+    guid: 2cfd6130f17be4644b9592363d949218
   m_configObjects: {}
