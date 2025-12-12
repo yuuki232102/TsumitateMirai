@@ -338,7 +338,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 130040240}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 870412410}
+        m_TargetAssemblyTypeName: HowToPlayButton, Assembly-CSharp
+        m_MethodName: OnClickHowToPlay
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &130040240
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -377,6 +389,51 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 130040237}
   m_CullTransparentMesh: 1
+--- !u!1 &154841837
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 154841839}
+  - component: {fileID: 154841838}
+  m_Layer: 0
+  m_Name: StatButton
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &154841838
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 154841837}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccdee74a92335964ea5ee7d96a5ffe0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  simulationSceneName: SimulationScene
+--- !u!4 &154841839
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 154841837}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 960.87836, y: 568.7533, z: -6.845507}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &204432322
 GameObject:
   m_ObjectHideFlags: 0
@@ -469,7 +526,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &478466709
+--- !u!1 &695578330
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -477,35 +534,35 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 478466711}
-  - component: {fileID: 478466710}
+  - component: {fileID: 695578332}
+  - component: {fileID: 695578331}
   m_Layer: 0
-  m_Name: TitleSceneManager
+  m_Name: SettingButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &478466710
+--- !u!114 &695578331
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 478466709}
+  m_GameObject: {fileID: 695578330}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fbaf92f924db72c49bdba822f3deafff, type: 3}
+  m_Script: {fileID: 11500000, guid: c4ffde8f49939a849899d020303d3507, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  simulationSceneName: SimulationScene
---- !u!4 &478466711
+  settingsSceneName: SettingsScene
+--- !u!4 &695578332
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 478466709}
+  m_GameObject: {fileID: 695578330}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 960.87836, y: 568.7533, z: -6.845507}
@@ -782,6 +839,65 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 826206730}
   m_CullTransparentMesh: 1
+--- !u!1 &870412408
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 870412411}
+  - component: {fileID: 870412410}
+  - component: {fileID: 870412409}
+  m_Layer: 0
+  m_Name: HowToPlayButton
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &870412409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 870412408}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6c1eeac061ac3b408274b8bcdbfbeb2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  HowToPlaySceneName: HowToPlayScene
+--- !u!114 &870412410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 870412408}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6c1eeac061ac3b408274b8bcdbfbeb2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  HowToPlaySceneName: HowToPlayScene
+--- !u!4 &870412411
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 870412408}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 960.87836, y: 568.7533, z: -6.845507}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &895927205
 GameObject:
   m_ObjectHideFlags: 0
@@ -865,7 +981,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 478466710}
+      - m_Target: {fileID: 154841838}
         m_TargetAssemblyTypeName: TitleSceneManager, Assembly-CSharp
         m_MethodName: OnClickStart
         m_Mode: 1
@@ -1650,7 +1766,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2087494688}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 695578331}
+        m_TargetAssemblyTypeName: SettingsButton, Assembly-CSharp
+        m_MethodName: OnClickSettings
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &2087494688
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1696,4 +1824,6 @@ SceneRoots:
   - {fileID: 204432325}
   - {fileID: 1984611492}
   - {fileID: 1487403000}
-  - {fileID: 478466711}
+  - {fileID: 154841839}
+  - {fileID: 870412411}
+  - {fileID: 695578332}
