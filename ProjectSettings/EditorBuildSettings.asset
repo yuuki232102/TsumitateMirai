@@ -14,4 +14,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/NisaGame/Scenes/SimulationScene.unity
     guid: 2cfd6130f17be4644b9592363d949218
+  - enabled: 1
+    path: Assets/NisaGame/Scenes/HowToPlayScene.unity
+    guid: c1a74cf6e866ea442bf67d44371dc75c
   m_configObjects: {}
