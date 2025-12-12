@@ -1,14 +1,14 @@
-using UnityEngine;
-using UnityEngine.SceneManagement;  // ƒV[ƒ“‘JˆÚ‚É•K—v
+ï»¿using UnityEngine;
+using UnityEngine.SceneManagement;  // ã‚·ãƒ¼ãƒ³é·ç§»ã«å¿…è¦
 
 public class SettingsButton : MonoBehaviour
 {
-    // ‘JˆÚæ‚ÌƒV[ƒ“–¼‚ğƒCƒ“ƒXƒyƒNƒ^‚©‚çİ’è‚Å‚«‚é‚æ‚¤‚É‚·‚é
-    [SerializeField] private string settingsSceneName = "SettingsScene";
+    // é·ç§»å…ˆã®ã‚·ãƒ¼ãƒ³åã‚’ã‚¤ãƒ³ã‚¹ãƒšã‚¯ã‚¿ã‹ã‚‰è¨­å®šã§ãã‚‹ã‚ˆã†ã«ã™ã‚‹
+    [SerializeField] private string SettingsSceneName = "SettingsScene";
 
-    // ƒ{ƒ^ƒ“‚Ì OnClick ‚ÅŒÄ‚Ño‚·ƒƒ\ƒbƒh
+    // ãƒœã‚¿ãƒ³ã® OnClick ã§å‘¼ã³å‡ºã™ãƒ¡ã‚½ãƒƒãƒ‰
     public void OnClickSettings()
     {
-        SceneManager.LoadScene(settingsSceneName);
+        SceneManager.LoadScene(SettingsSceneName);
     }
 }
