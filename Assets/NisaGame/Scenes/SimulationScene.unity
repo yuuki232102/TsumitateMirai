@@ -605,7 +605,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "10,000\u5186"
+  m_text: "1,000\u5186"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: a70fcd9c58bb90448b4b470eb55f7c58, type: 2}
   m_sharedMaterial: {fileID: -8171395115212478123, guid: a70fcd9c58bb90448b4b470eb55f7c58, type: 2}
@@ -1723,7 +1723,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 868439653}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1985973398}
+        m_TargetAssemblyTypeName: SimulationSceneManager, Assembly-CSharp
+        m_MethodName: OnClickNextYear
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &868439653
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2997,7 +3009,7 @@ MonoBehaviour:
       - m_Target: {fileID: 1985973398}
         m_TargetAssemblyTypeName: SimulationSceneManager, Assembly-CSharp
         m_MethodName: OnMonthlySliderChanged
-        m_Mode: 0
+        m_Mode: 4
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -3491,7 +3503,19 @@ MonoBehaviour:
   m_Group: {fileID: 2067062294}
   onValueChanged:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1985973398}
+        m_TargetAssemblyTypeName: SimulationSceneManager, Assembly-CSharp
+        m_MethodName: OnSelectRiskMiddle
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   m_IsOn: 0
 --- !u!1 &1788402821
 GameObject:
@@ -3577,7 +3601,19 @@ MonoBehaviour:
   m_Group: {fileID: 2067062294}
   onValueChanged:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1985973398}
+        m_TargetAssemblyTypeName: SimulationSceneManager, Assembly-CSharp
+        m_MethodName: OnSelectRiskHigh
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   m_IsOn: 0
 --- !u!1 &1792958957
 GameObject:
@@ -3888,7 +3924,19 @@ MonoBehaviour:
   m_Group: {fileID: 2067062294}
   onValueChanged:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1985973398}
+        m_TargetAssemblyTypeName: SimulationSceneManager, Assembly-CSharp
+        m_MethodName: OnSelectRiskLow
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   m_IsOn: 0
 --- !u!1 &1893018707
 GameObject:
@@ -4054,6 +4102,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   yearText: {fileID: 1802293070}
+  currentAssetText: {fileID: 1044546582}
   monthlyAmountText: {fileID: 319925209}
   monthlyAmountSlider: {fileID: 1458710147}
   riskLowToggle: {fileID: 1812868292}
@@ -4066,7 +4115,13 @@ MonoBehaviour:
   monthlyStep: 1000
   minMonthlyAmount: 1000
   maxMonthlyAmount: 33000
+  assetAtStartOfYear: 0
+  currentAsset: 0
+  totalPrincipal: 0
   currentRiskType: 1
+  lowRiskReturnRate: 0.02
+  middleRiskReturnRate: 0.04
+  highRiskReturnRate: 0.06
 --- !u!4 &1985973399
 Transform:
   m_ObjectHideFlags: 0

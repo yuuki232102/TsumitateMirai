@@ -1,42 +1,59 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;  // Toggle / Slider 用
-using TMPro;           // TMP_Text 用
+using UnityEngine.UI;   // Toggle / Slider
+using TMPro;            // TMP_Text
 
 public class SimulationSceneManager : MonoBehaviour
 {
     [Header("年数表示 UI")]
-    [SerializeField] private TMP_Text yearText;        // 「0年目 / 15年」
+    [SerializeField] private TMP_Text yearText;              // 「0年目 / 15年」
+
+    [Header("資産表示 UI")]
+    [SerializeField] private TMP_Text currentAssetText;      // 「現在の資産」の数値部分
 
     [Header("積立額 UI")]
-    [SerializeField] private TMP_Text monthlyAmountText;   // 「10,000円」の部分
-    [SerializeField] private Slider monthlyAmountSlider; // ★ スライダーを追加
+    [SerializeField] private TMP_Text monthlyAmountText;     // 「10,000円」のテキスト
+    [SerializeField] private Slider monthlyAmountSlider;   // 毎月のつみたて額スライダー
 
     [Header("リスク選択 UI")]
-    [SerializeField] private Toggle riskLowToggle;       // 低リスク
-    [SerializeField] private Toggle riskMiddleToggle;    // 中リスク
-    [SerializeField] private Toggle riskHighToggle;      // 高リスク
-    [SerializeField] private TMP_Text riskLabelText;       // 「リスク：◯◯」
+    [SerializeField] private Toggle riskLowToggle;         // 低リスク
+    [SerializeField] private Toggle riskMiddleToggle;      // 中リスク
+    [SerializeField] private Toggle riskHighToggle;        // 高リスク
+    [SerializeField] private TMP_Text riskLabelText;         // 「リスクタイプ：◯◯」
 
     [Header("年数設定")]
-    [SerializeField] private int maxYear = 15;   // 最後は 15 年目
-    [SerializeField] private int currentYear = 0; // 0年目スタート
+    [SerializeField] private int maxYear = 15;           // 最後は15年目
+    [SerializeField] private int currentYear = 0;            // 0年目スタート
 
     [Header("積立額設定")]
-    [SerializeField] private int monthlyAmount = 10000;   // 初期の毎月の積立額（円）
-    [SerializeField] private int monthlyStep = 1000;    // ＋/− 1回で変える金額・スライダー刻み
-    [SerializeField] private int minMonthlyAmount = 1000; // 最低額
-    [SerializeField] private int maxMonthlyAmount = 100000; // 最大額
+    [SerializeField] private int monthlyAmount = 1000;    // 初期の毎月の積立額（円）
+    [SerializeField] private int monthlyStep = 1000;    // ＋/− / スライダー刻み
+    [SerializeField] private int minMonthlyAmount = 1000;    // 最低額
+    [SerializeField] private int maxMonthlyAmount = 100000;  // 最大額
+
+    [Header("資産状態（シミュレーション用）")]
+    [SerializeField] private int assetAtStartOfYear = 0;     // 「今年の始め」の資産（前年までの結果）
+    [SerializeField] private int currentAsset = 0;     // 「今年の設定で1年回した場合の今年末資産」
+    [SerializeField] private int totalPrincipal = 0;     // これまで積み立てた元本の合計
 
     [Header("リスク設定")]
     // 0 = 低リスク, 1 = 中リスク, 2 = 高リスク
-    [SerializeField] private int currentRiskType = 1; // デフォルト中リスク
+    [SerializeField] private int currentRiskType = 1;        // デフォルト中リスク
 
-    // スライダー更新ループを防ぐためのフラグ
-    private bool isUpdatingMonthlySlider = false;
+    [Header("リスク別期待リターン（年率）")]
+    [SerializeField] private float lowRiskReturnRate = 0.02f; // 年率2%
+    [SerializeField] private float middleRiskReturnRate = 0.04f; // 年率4%
+    [SerializeField] private float highRiskReturnRate = 0.06f; // 年率6%
 
+    // 内部フラグ
+    private bool isUpdatingMonthlySlider = false;         // スライダー同期中フラグ
+    private bool hasRiskCallbackInitialized = false;         // リスクトグル初回コールバックを無視する用
+
+    //==================================================
+    // 初期化
+    //==================================================
     private void Start()
     {
-        // 念のため 0〜maxYear に丸めておく
+        // 年数の初期化
         currentYear = Mathf.Clamp(currentYear, 0, maxYear);
 
         // monthlyStep が 0 以下だと困るので保険
@@ -45,12 +62,17 @@ public class SimulationSceneManager : MonoBehaviour
             monthlyStep = 1000;
         }
 
+        // 資産は毎回 0 からスタート（0年目のスタート時点）
+        assetAtStartOfYear = 0;
+        currentAsset = 0;
+        totalPrincipal = 0;
+
         // 積立額を範囲内 & 刻みにスナップ
         monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
         monthlyAmount = Mathf.RoundToInt(monthlyAmount / (float)monthlyStep) * monthlyStep;
         monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
 
-        // ★ スライダーの初期設定
+        // スライダー初期設定
         if (monthlyAmountSlider != null)
         {
             monthlyAmountSlider.minValue = minMonthlyAmount;
@@ -58,20 +80,23 @@ public class SimulationSceneManager : MonoBehaviour
             monthlyAmountSlider.wholeNumbers = true;
 
             isUpdatingMonthlySlider = true;
-            monthlyAmountSlider.value = monthlyAmount;
+            monthlyAmountSlider.value = monthlyAmount;   // ここで 1000 にセット
             isUpdatingMonthlySlider = false;
         }
 
-        // 初期表示更新
+        // ラベル類の更新
         UpdateYearText();
         UpdateMonthlyAmountText();
         UpdateRiskLabel();
         UpdateRiskUIInteractable();
+
+        // ★ 0年目の初期表示をスライダーの金額と揃える
+        UpdateCurrentYearPreviewAsset();   // この中で currentAssetText も更新される
     }
 
-    // =========================
-    // 年を進める（「次の年へ ▶」ボタン用）
-    // =========================
+    //==================================================
+    // 年を進める（「次の年へ ▶」ボタン）
+    //==================================================
     public void OnClickNextYear()
     {
         if (currentYear >= maxYear)
@@ -80,7 +105,7 @@ public class SimulationSceneManager : MonoBehaviour
             return;
         }
 
-        // ★ここで「今年1年分のシミュレーション計算」を行うようにしていく予定
+        // 現在の設定で「今年1年分」を確定
         SimulateOneYear();
 
         // 年を進める
@@ -89,7 +114,6 @@ public class SimulationSceneManager : MonoBehaviour
         // 表示更新
         UpdateYearText();
         UpdateRiskUIInteractable();
-        // 積立額は毎年変更可能なので、特にロック解除/ロックは不要
     }
 
     private void UpdateYearText()
@@ -100,24 +124,21 @@ public class SimulationSceneManager : MonoBehaviour
         }
     }
 
-    // =========================
+    //==================================================
     // 積立額（毎月）
-    // =========================
-
+    //==================================================
     private void UpdateMonthlyAmountText()
     {
         if (monthlyAmountText != null)
         {
-            // 3桁区切り ＋ 「円」
             monthlyAmountText.text = $"{monthlyAmount.ToString("N0")}円";
         }
     }
 
-    // 「＋」ボタン用（使う場合）
+    // 「＋」ボタン（使う場合）
     public void OnClickIncreaseMonthly()
     {
         monthlyAmount = Mathf.Min(monthlyAmount + monthlyStep, maxMonthlyAmount);
-        // 刻み＆範囲に再度合わせる
         monthlyAmount = Mathf.RoundToInt(monthlyAmount / (float)monthlyStep) * monthlyStep;
         monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
 
@@ -129,9 +150,12 @@ public class SimulationSceneManager : MonoBehaviour
             monthlyAmountSlider.value = monthlyAmount;
             isUpdatingMonthlySlider = false;
         }
+
+        // 積立額変更にあわせて今年の資産プレビューを更新
+        UpdateCurrentYearPreviewAsset();
     }
 
-    // 「−」ボタン用（使う場合）
+    // 「−」ボタン（使う場合）
     public void OnClickDecreaseMonthly()
     {
         monthlyAmount = Mathf.Max(monthlyAmount - monthlyStep, minMonthlyAmount);
@@ -146,14 +170,17 @@ public class SimulationSceneManager : MonoBehaviour
             monthlyAmountSlider.value = monthlyAmount;
             isUpdatingMonthlySlider = false;
         }
+
+        // 積立額変更にあわせて今年の資産プレビューを更新
+        UpdateCurrentYearPreviewAsset();
     }
 
-    // ★ スライダー用：OnValueChanged(float) から呼ぶ
+    // スライダーの OnValueChanged(float) から呼ぶ
     public void OnMonthlySliderChanged(float sliderValue)
     {
+        // スクリプト側から value をいじっている最中は無視
         if (isUpdatingMonthlySlider)
         {
-            // コード側から value を変えたときは何もしない
             return;
         }
 
@@ -164,28 +191,43 @@ public class SimulationSceneManager : MonoBehaviour
         monthlyAmount = snapped;
         UpdateMonthlyAmountText();
 
-        // スナップ後の値をスライダーに反映（無限ループ防止フラグ付き）
+        // スナップ後の値をスライダーに反映（見た目も揃える）
         if (monthlyAmountSlider != null)
         {
             isUpdatingMonthlySlider = true;
             monthlyAmountSlider.value = monthlyAmount;
             isUpdatingMonthlySlider = false;
         }
+
+        // 積立額変更にあわせて今年の資産プレビューを更新
+        UpdateCurrentYearPreviewAsset();
     }
 
-    public int GetMonthlyAmount()
+    public int GetMonthlyAmount() => monthlyAmount;
+
+    //==================================================
+    // 現在の資産表示
+    //==================================================
+    private void UpdateCurrentAssetText()
     {
-        return monthlyAmount;
+        if (currentAssetText != null)
+        {
+            currentAssetText.text = $"{currentAsset.ToString("N0")}円";
+        }
     }
 
-    // =========================
-    // リスクタイプ関連
-    // =========================
+    public int GetCurrentAsset() => currentAsset;
+    public int GetTotalPrincipal() => totalPrincipal;
+    public int GetCurrentYear() => currentYear;
+    public int GetCurrentRiskType() => currentRiskType;
 
-    // この年にリスク変更して良いか？
+    //==================================================
+    // リスクタイプ関連
+    //==================================================
+
+    // この年にリスク変更して良いか？（0 / 5 / 10 年目だけ）
     private bool CanChangeRiskThisYear()
     {
-        // 0年目・5年目・10年目だけ変更可能
         return currentYear == 0 || currentYear == 5 || currentYear == 10;
     }
 
@@ -202,10 +244,19 @@ public class SimulationSceneManager : MonoBehaviour
     // 低リスクトグルの OnValueChanged(bool) に繋ぐ
     public void OnSelectRiskLow(bool isOn)
     {
-        if (!isOn) return; // OFF になったタイミングでは何もしない
+        if (!isOn) return;
 
         currentRiskType = 0;
         UpdateRiskLabel();
+
+        // 起動直後の最初の1回はプレビュー更新をスキップ
+        if (!hasRiskCallbackInitialized)
+        {
+            hasRiskCallbackInitialized = true;
+            return;
+        }
+
+        UpdateCurrentYearPreviewAsset();
         Debug.Log("リスクタイプ：低リスク");
     }
 
@@ -213,8 +264,17 @@ public class SimulationSceneManager : MonoBehaviour
     public void OnSelectRiskMiddle(bool isOn)
     {
         if (!isOn) return;
+
         currentRiskType = 1;
         UpdateRiskLabel();
+
+        if (!hasRiskCallbackInitialized)
+        {
+            hasRiskCallbackInitialized = true;
+            return;
+        }
+
+        UpdateCurrentYearPreviewAsset();
         Debug.Log("リスクタイプ：中リスク");
     }
 
@@ -222,8 +282,17 @@ public class SimulationSceneManager : MonoBehaviour
     public void OnSelectRiskHigh(bool isOn)
     {
         if (!isOn) return;
+
         currentRiskType = 2;
         UpdateRiskLabel();
+
+        if (!hasRiskCallbackInitialized)
+        {
+            hasRiskCallbackInitialized = true;
+            return;
+        }
+
+        UpdateCurrentYearPreviewAsset();
         Debug.Log("リスクタイプ：高リスク");
     }
 
@@ -231,7 +300,7 @@ public class SimulationSceneManager : MonoBehaviour
     {
         if (riskLabelText == null) return;
 
-        string label = "";
+        string label;
         switch (currentRiskType)
         {
             case 0: label = "低リスク"; break;
@@ -243,28 +312,59 @@ public class SimulationSceneManager : MonoBehaviour
         riskLabelText.text = $"リスクタイプ：{label}";
     }
 
-    public int GetCurrentRiskType()
+    // リスクタイプから年率を取得
+    private float GetAnnualReturnRate()
     {
-        return currentRiskType;
+        switch (currentRiskType)
+        {
+            case 0: return lowRiskReturnRate;
+            case 1: return middleRiskReturnRate;
+            case 2: return highRiskReturnRate;
+            default: return middleRiskReturnRate;
+        }
     }
 
-    // =========================
-    // 1年分のシミュレーション（中身は後で）
-    // =========================
+    //==================================================
+    // 「今年1年分」の資産プレビュー（スライダー＆リスク変更時）
+    //==================================================
+    private void UpdateCurrentYearPreviewAsset()
+    {
+        // ★ 0年目だけは「スライダーの値＝毎月のつみたて額」をそのまま資産として扱う
+        if (currentYear == 0)
+        {
+            currentAsset = monthlyAmount;     // 例：スライダーが 1,000円 なら 現在の資産も 1,000円
+        }
+        else
+        {
+            // 1年目以降は、これまでの資産＋今年の積立額を利回り付きで計算
+            int yearlyContribution = monthlyAmount * 12;
+            float rate = GetAnnualReturnRate();
 
+            // 「今年の始めの資産 ＋ 今年の積立額」を年率 rate で1年間運用したと仮定
+            float after = (assetAtStartOfYear + yearlyContribution) * (1f + rate);
+
+            currentAsset = Mathf.RoundToInt(after);
+        }
+
+        UpdateCurrentAssetText();
+    }
+
+    //==================================================
+    // 1年分のシミュレーション（確定処理・次の年へ進むとき）
+    //==================================================
     private void SimulateOneYear()
     {
-        // ここに
-        // ・currentYear
-        // ・monthlyAmount
-        // ・currentRiskType
-        // を使って、1年分の資産を増やす計算を書いていく予定。
-        // 今はまだダミー（何もしない）でOK。
-    }
+        // 最新の設定でプレビューを更新
+        UpdateCurrentYearPreviewAsset();
 
-    // 現在の年を知りたいとき用
-    public int GetCurrentYear()
-    {
-        return currentYear;
+        int yearlyContribution = monthlyAmount * 12;
+
+        // 元本合計に今年の積立額を加算（確定）
+        totalPrincipal += yearlyContribution;
+
+        // 来年の「年初資産」は、今年末の資産になる
+        assetAtStartOfYear = currentAsset;
+
+        // 将来グラフ用のデータ追加などはここで行う想定
     }
 }
