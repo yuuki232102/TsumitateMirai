@@ -44,6 +44,12 @@ public class SimulationSceneManager : MonoBehaviour
     [SerializeField] private float middleRiskReturnRate = 0.04f; // 年率4%
     [SerializeField] private float highRiskReturnRate = 0.06f; // 年率6%
 
+
+    [Header("グラフ UI")]
+    [SerializeField] private SimulationGraphUI graphUI;
+
+
+
     // 内部フラグ
     private bool isUpdatingMonthlySlider = false;         // スライダー同期中フラグ
     private bool hasRiskCallbackInitialized = false;         // リスクトグル初回コールバックを無視する用
@@ -83,6 +89,20 @@ public class SimulationSceneManager : MonoBehaviour
             monthlyAmountSlider.value = monthlyAmount;   // ここで 1000 にセット
             isUpdatingMonthlySlider = false;
         }
+
+        // ★ グラフ初期化：0年目の点を打つ
+        if (graphUI != null)
+        {
+            graphUI.ResetGraph();
+            graphUI.AddPoint(currentYear, currentAsset);   // 0年目・現在の資産（最初は 1000円）
+        }
+
+        if (graphUI != null)
+        {
+            // 「今年の終わり」の点 → 年数は currentYear + 1
+            graphUI.AddPoint(currentYear + 1, currentAsset);
+        }
+
 
         // ラベル類の更新
         UpdateYearText();
@@ -366,5 +386,11 @@ public class SimulationSceneManager : MonoBehaviour
         assetAtStartOfYear = currentAsset;
 
         // 将来グラフ用のデータ追加などはここで行う想定
+        // ★ グラフに「今年の終わり」の点を追加（年数は currentYear + 1）
+        if (graphUI != null)
+        {
+            int newYear = currentYear + 1;
+            graphUI.AddPoint(newYear, currentAsset);
+        }
     }
 }
