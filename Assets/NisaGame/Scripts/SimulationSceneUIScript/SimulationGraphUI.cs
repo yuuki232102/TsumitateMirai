@@ -1,7 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
+using UnityEngine.UI;   // Legacy Text 用
 
 public class SimulationGraphUI : MonoBehaviour
 {
@@ -12,19 +11,31 @@ public class SimulationGraphUI : MonoBehaviour
     [SerializeField] private RectTransform pointPrefab; // 点（●）
     [SerializeField] private RectTransform linePrefab;  // 線（―）
 
-    [Header("設定")]
-    [SerializeField] private int maxYear = 15;       // 年数（0〜15年）
-    [SerializeField] private float maxAssetValue = 200000f;  // 縦軸の最大値（自動で更新される）
+    [Header("基本設定")]
+    [SerializeField] private int maxYear = 15;          // 年数（0〜15年）
+
+    [Header("縦軸設定（デフォルト）")]
+    [SerializeField] private float defaultMinAsset = -30000f;  // 初期下限：-3万円
+    [SerializeField] private float defaultMaxAsset = 70000f;  // 初期上限：+7万円
+
+    [Header("縦軸マージン設定")]
+    [SerializeField] private float negativeMargin = 5000f;   // 下側余白（マイナス側）
+    [SerializeField] private float positiveMargin = 10000f;  // 上側余白（プラス側）
+
+    [Header("描画設定")]
     [SerializeField] private float pointSize = 12f;      // 点のサイズ
     [SerializeField] private float lineThickness = 3f;       // 線の太さ
 
-    [Header("Y軸ラベル（下 → 上 の順）")]
-    [SerializeField] private TMP_Text[] yAxisLabels;         // 0円〜最大値までのラベル
+    [Header("Y軸ラベルの親（子に Text を並べる）")]
+    [SerializeField] private RectTransform yAxisLabelsRoot;
 
-    // 実際の描画用
+    // 実際に使っている現在の上下限
+    private float minAssetValue;
+    private float maxAssetValue;
+
+    // 描画用・データ用
     private readonly List<RectTransform> pointList = new List<RectTransform>();
-    // データ保持用（year, asset）
-    private readonly List<Vector2Int> dataPoints = new List<Vector2Int>();
+    private readonly List<Vector2Int> dataPoints = new List<Vector2Int>();   // (year, asset)
 
     private void Awake()
     {
@@ -33,10 +44,14 @@ public class SimulationGraphUI : MonoBehaviour
             graphRect = GetComponent<RectTransform>();
         }
 
+        // 縦軸レンジ初期値
+        minAssetValue = defaultMinAsset;
+        maxAssetValue = defaultMaxAsset;
+
         UpdateYAxisLabels();
     }
 
-    /// <summary> グラフとデータを全部消す </summary>
+    /// <summary> グラフとデータを全部リセット </summary>
     public void ResetGraph()
     {
         foreach (Transform child in graphRect)
@@ -46,63 +61,98 @@ public class SimulationGraphUI : MonoBehaviour
         pointList.Clear();
         dataPoints.Clear();
 
-        // 縦軸ラベルをリセット
+        minAssetValue = defaultMinAsset;
+        maxAssetValue = defaultMaxAsset;
         UpdateYAxisLabels();
     }
 
-    /// <summary> 外から最大資産値を指定したいとき用（使わなくてもOK） </summary>
-    public void SetMaxAssetValue(float newMax)
+    /// <summary>
+    /// 年(year)・資産(asset) の点を追加する。
+    /// 必要に応じて上下限を更新し、全点を描き直す。
+    /// </summary>
+    public void AddPoint(int year, int asset)
     {
-        maxAssetValue = Mathf.Max(1f, newMax);
+        dataPoints.Add(new Vector2Int(year, asset));
+
+        RecalculateAxisRangeFromData();
         RedrawAllPoints();
     }
 
     /// <summary>
-    /// 年(year)・資産(asset) の点を一つ追加する。
-    /// 必要に応じて縦軸スケールを拡大し、全点を描き直す。
+    /// データから min/max を求めて縦軸レンジを更新
     /// </summary>
-    public void AddPoint(int year, int asset)
+    private void RecalculateAxisRangeFromData()
     {
-        // データとして保存
-        dataPoints.Add(new Vector2Int(year, asset));
-
-        // これまでで最大の資産を調べる
-        float maxSeen = 0f;
-        foreach (var p in dataPoints)
+        if (dataPoints.Count == 0)
         {
-            if (p.y > maxSeen) maxSeen = p.y;
+            minAssetValue = defaultMinAsset;
+            maxAssetValue = defaultMaxAsset;
+            return;
         }
 
-        // 最大値を少し余裕を持って更新（1.1倍）
-        if (maxSeen > maxAssetValue)
+        float minSeen = dataPoints[0].y;
+        float maxSeen = dataPoints[0].y;
+
+        for (int i = 1; i < dataPoints.Count; i++)
         {
-            maxAssetValue = maxSeen * 1.1f;
+            int v = dataPoints[i].y;
+            if (v < minSeen) minSeen = v;
+            if (v > maxSeen) maxSeen = v;
         }
 
-        // 全点描き直し
-        RedrawAllPoints();
+        // --- 下限（マイナス側） ---
+        // デフォルトは -3万円。もっと下がったら「一番低い値 - negativeMargin」まで下げる。
+        float newMin = defaultMinAsset;
+        if (minSeen < 0f)
+        {
+            newMin = minSeen - negativeMargin;
+        }
+
+        // --- 上限（プラス側） ---
+        // デフォルトは +7万円。もっと上がったら「一番高い値 + positiveMargin」まで上げる。
+        float newMax = defaultMaxAsset;
+        if (maxSeen > 0f)
+        {
+            newMax = Mathf.Max(defaultMaxAsset, maxSeen + positiveMargin);
+        }
+
+        // レンジが極端に狭くならないように保険
+        if (newMax - newMin < 10000f)
+        {
+            newMax = newMin + 10000f;
+        }
+
+        minAssetValue = newMin;
+        maxAssetValue = newMax;
     }
 
     /// <summary> dataPoints を元に点と線を全部描き直す </summary>
     private void RedrawAllPoints()
     {
-        // 既存の描画オブジェクトを全削除
+        // 既存オブジェクト削除
         foreach (Transform child in graphRect)
         {
             Destroy(child.gameObject);
         }
         pointList.Clear();
 
-        // 縦軸ラベル更新
         UpdateYAxisLabels();
 
-        // 点と線を順番に再生成
+        if (dataPoints.Count == 0) return;
+
         for (int i = 0; i < dataPoints.Count; i++)
         {
             Vector2Int dp = dataPoints[i];
 
-            float x01 = Mathf.Clamp01((float)dp.x / maxYear);
-            float y01 = maxAssetValue > 0 ? Mathf.Clamp01(dp.y / maxAssetValue) : 0f;
+            // X方向：0年〜maxYear を 0〜1 に正規化
+            float x01 = maxYear > 0 ? Mathf.Clamp01((float)dp.x / maxYear) : 0f;
+
+            // Y方向：min〜max を 0〜1 に正規化
+            float y01 = 0f;
+            if (maxAssetValue > minAssetValue + Mathf.Epsilon)
+            {
+                y01 = Mathf.InverseLerp(minAssetValue, maxAssetValue, dp.y);
+            }
 
             Vector2 size = graphRect.rect.size;
             Vector2 localPos = new Vector2(
@@ -142,27 +192,66 @@ public class SimulationGraphUI : MonoBehaviour
         }
     }
 
-    /// <summary> Y軸ラベルのテキストを maxAssetValue に合わせて更新する </summary>
+    /// <summary>
+    /// 現在の min/max に合わせて Y軸ラベルのテキストを更新。
+    /// 0 をまたいでいる場合は、0 に一番近いラベルを「0円」に固定。
+    /// </summary>
     private void UpdateYAxisLabels()
     {
-        if (yAxisLabels == null || yAxisLabels.Length == 0) return;
+        if (yAxisLabelsRoot == null) return;
 
-        int n = yAxisLabels.Length;
+        // 親の子孫から Text を全部拾う（毎回取り直し）
+        Text[] labels = yAxisLabelsRoot.GetComponentsInChildren<Text>(true);
+        if (labels == null || labels.Length == 0) return;
+
+        // 上にあるものから下にあるものへ並び替え
+        System.Array.Sort(labels,
+            (a, b) => b.rectTransform.position.y.CompareTo(a.rectTransform.position.y));
+        // labels[0] = 一番上, labels[n-1] = 一番下
+
+        int n = labels.Length;
+
         if (n == 1)
         {
-            yAxisLabels[0].text = $"{maxAssetValue:N0}円";
+            int v = Mathf.RoundToInt(maxAssetValue / 1000f) * 1000;
+            labels[0].text = $"{v:N0}円";
             return;
         }
 
+        // まずは min〜max を均等に割った値を作る
+        float[] rawValues = new float[n];
         for (int i = 0; i < n; i++)
         {
-            float t = (float)i / (n - 1); // 0 = 一番下, 1 = 一番上
-            int value = Mathf.RoundToInt(maxAssetValue * t);
+            // i=0(一番上)→t=1, i=n-1(一番下)→t=0
+            float t = 1f - (float)i / (n - 1);
+            rawValues[i] = Mathf.Lerp(minAssetValue, maxAssetValue, t);
+        }
 
-            if (yAxisLabels[i] != null)
+        // 範囲がマイナス〜プラスをまたいでいるときだけ、
+        // 0 に一番近いラベルを「きっちり 0」にスナップさせる
+        if (minAssetValue < 0f && maxAssetValue > 0f)
+        {
+            int closestIndex = 0;
+            float closestAbs = Mathf.Abs(rawValues[0]);
+
+            for (int i = 1; i < n; i++)
             {
-                yAxisLabels[i].text = $"{value:N0}円";
+                float abs = Mathf.Abs(rawValues[i]);
+                if (abs < closestAbs)
+                {
+                    closestAbs = abs;
+                    closestIndex = i;
+                }
             }
+
+            rawValues[closestIndex] = 0f;   // ここで 0 に固定
+        }
+
+        // 1000円単位に丸めて表示
+        for (int i = 0; i < n; i++)
+        {
+            int rounded = Mathf.RoundToInt(rawValues[i] / 1000f) * 1000;
+            labels[i].text = $"{rounded:N0}円";
         }
     }
 }
