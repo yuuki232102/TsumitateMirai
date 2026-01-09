@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 public class MonthlyGraphUI : MonoBehaviour
@@ -20,29 +21,45 @@ public class MonthlyGraphUI : MonoBehaviour
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
 
-    [Header("Y軸ラベルの親（子に Text を並べる）")]
+    [Header("Y軸ラベルの親")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
 
-    [SerializeField] private TMP_Text[] yAxisLabels;
+    [Header("X軸ラベルの親")]
+    [SerializeField] private RectTransform xAxisLabelsRoot;
+
+    private TMP_Text[] yAxisLabelsTMP;
+    private Text[] yAxisLabelsUGUI;
+
+    private TMP_Text[] xAxisLabelsTMP;
+    private Text[] xAxisLabelsUGUI;
 
     private readonly List<int> monthlyAssets = new List<int>();
 
     private void Awake()
     {
-        CacheYAxisLabels();
+        CacheAxisLabels();
     }
 
-    private void CacheYAxisLabels()
+    private void CacheAxisLabels()
     {
-        if (yAxisLabelsRoot == null) return;
-        yAxisLabels = yAxisLabelsRoot.GetComponentsInChildren<TMP_Text>();
+        if (yAxisLabelsRoot != null)
+        {
+            yAxisLabelsTMP = yAxisLabelsRoot.GetComponentsInChildren<TMP_Text>();
+            yAxisLabelsUGUI = yAxisLabelsRoot.GetComponentsInChildren<Text>();
+        }
+
+        if (xAxisLabelsRoot != null)
+        {
+            xAxisLabelsTMP = xAxisLabelsRoot.GetComponentsInChildren<TMP_Text>();
+            xAxisLabelsUGUI = xAxisLabelsRoot.GetComponentsInChildren<Text>();
+        }
     }
 
     //========================================================
     // 外部インターフェース
     //========================================================
 
-    /// <summary>指定された年の「月次資産推移」をセット＆再描画</summary>
+    /// <summary>指定された年の月次資産推移をセット＆描画</summary>
     public void SetMonthlyData(List<int> assetsForYear)
     {
         monthlyAssets.Clear();
@@ -56,7 +73,7 @@ public class MonthlyGraphUI : MonoBehaviour
     }
 
     //========================================================
-    // 内部処理
+    // 描画
     //========================================================
 
     private void ClearGraphVisuals()
@@ -78,6 +95,7 @@ public class MonthlyGraphUI : MonoBehaviour
         if (monthlyAssets.Count == 0)
         {
             UpdateYAxisLabels(defaultMinAsset, defaultMaxAsset);
+            UpdateXAxisLabels(12);
             return;
         }
 
@@ -103,6 +121,7 @@ public class MonthlyGraphUI : MonoBehaviour
         }
 
         UpdateYAxisLabels(minAsset, maxAsset);
+        UpdateXAxisLabels(monthlyAssets.Count);
 
         float width = graphRect.rect.width;
         float height = graphRect.rect.height;
@@ -111,11 +130,11 @@ public class MonthlyGraphUI : MonoBehaviour
         bool hasPrev = false;
 
         int count = monthlyAssets.Count;
-        if (count == 1) count = 2; // 1点だけの時に 0除算防止
+        if (count == 1) count = 2;
 
         for (int i = 0; i < monthlyAssets.Count; i++)
         {
-            float tX = (float)i / (count - 1); // 0〜1 に正規化
+            float tX = (float)i / (count - 1);
             float x = tX * width;
 
             float tY = Mathf.InverseLerp(minAsset, maxAsset, monthlyAssets[i]);
@@ -148,32 +167,63 @@ public class MonthlyGraphUI : MonoBehaviour
 
             previousPos = pos;
             hasPrev = true;
-
-            UpdateYAxisLabels(minAsset, maxAsset);
-            Debug.Log($"[MonthGraph] Rebuild: min={minAsset}, max={maxAsset}, points={monthlyAssets.Count}");
         }
     }
+
+    //========================================================
+    // 軸ラベル
+    //========================================================
 
     private void UpdateYAxisLabels(float minAsset, float maxAsset)
     {
         if (yAxisLabelsRoot == null) return;
 
-        if (yAxisLabels == null || yAxisLabels.Length == 0)
+        if ((yAxisLabelsTMP == null || yAxisLabelsTMP.Length == 0) &&
+            (yAxisLabelsUGUI == null || yAxisLabelsUGUI.Length == 0))
         {
-            CacheYAxisLabels();
+            CacheAxisLabels();
         }
 
-        if (yAxisLabels == null || yAxisLabels.Length == 0) return;
-
-        int n = yAxisLabels.Length;
+        int nTMP = yAxisLabelsTMP != null ? yAxisLabelsTMP.Length : 0;
+        int nGUI = yAxisLabelsUGUI != null ? yAxisLabelsUGUI.Length : 0;
+        int n = Mathf.Max(nTMP, nGUI);
+        if (n == 0) return;
 
         for (int i = 0; i < n; i++)
         {
-            float t = (float)i / (n - 1);
+            float t = n == 1 ? 0f : (float)i / (n - 1);
             float v = Mathf.Lerp(minAsset, maxAsset, t);
             int vi = Mathf.RoundToInt(v);
+            string text = $"{vi.ToString("N0")}円";
 
-            yAxisLabels[i].text = $"{vi.ToString("N0")}円";
+            if (i < nTMP && yAxisLabelsTMP[i] != null) yAxisLabelsTMP[i].text = text;
+            if (i < nGUI && yAxisLabelsUGUI[i] != null) yAxisLabelsUGUI[i].text = text;
+        }
+    }
+
+    private void UpdateXAxisLabels(int monthCount)
+    {
+        if (xAxisLabelsRoot == null) return;
+
+        if ((xAxisLabelsTMP == null || xAxisLabelsTMP.Length == 0) &&
+            (xAxisLabelsUGUI == null || xAxisLabelsUGUI.Length == 0))
+        {
+            CacheAxisLabels();
+        }
+
+        int nTMP = xAxisLabelsTMP != null ? xAxisLabelsTMP.Length : 0;
+        int nGUI = xAxisLabelsUGUI != null ? xAxisLabelsUGUI.Length : 0;
+        int n = Mathf.Max(nTMP, nGUI);
+        if (n == 0) return;
+
+        for (int i = 0; i < n; i++)
+        {
+            float t = n == 1 ? 0f : (float)i / (n - 1);
+            int month = Mathf.Clamp(Mathf.RoundToInt(t * (monthCount - 1)) + 1, 1, monthCount);
+            string text = $"{month}月";
+
+            if (i < nTMP && xAxisLabelsTMP[i] != null) xAxisLabelsTMP[i].text = text;
+            if (i < nGUI && xAxisLabelsUGUI[i] != null) xAxisLabelsUGUI[i].text = text;
         }
     }
 }
