@@ -507,7 +507,19 @@ MonoBehaviour:
   m_Group: {fileID: 608751033}
   onValueChanged:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1985973398}
+        m_TargetAssemblyTypeName: SimulationSceneManager, Assembly-CSharp
+        m_MethodName: OnSelectGraphYearly
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   m_IsOn: 0
 --- !u!1 &150848291
 GameObject:
@@ -837,7 +849,19 @@ MonoBehaviour:
   m_Group: {fileID: 608751033}
   onValueChanged:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1985973398}
+        m_TargetAssemblyTypeName: SimulationSceneManager, Assembly-CSharp
+        m_MethodName: OnSelectGraphMonthly
+        m_Mode: 6
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   m_IsOn: 1
 --- !u!1 &187324869
 GameObject:
@@ -959,6 +983,7 @@ RectTransform:
   m_Children:
   - {fileID: 632437461}
   - {fileID: 1170875658}
+  - {fileID: 1049121315}
   m_Father: {fileID: 766099386}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -1779,8 +1804,8 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1985973398}
         m_TargetAssemblyTypeName: SimulationSceneManager, Assembly-CSharp
-        m_MethodName: OnSelectGraphYearly
-        m_Mode: 6
+        m_MethodName: OnDetailYearSliderChanged
+        m_Mode: 4
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -2229,8 +2254,8 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 141188120}
   - {fileID: 186484617}
+  - {fileID: 141188120}
   m_Father: {fileID: 766099386}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -2685,7 +2710,6 @@ RectTransform:
   - {fileID: 46316010}
   - {fileID: 122540365}
   - {fileID: 2125001683}
-  - {fileID: 1049121315}
   - {fileID: 208341063}
   - {fileID: 416269198}
   - {fileID: 1458710146}
@@ -3383,18 +3407,18 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1049121314}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 187324870}
   - {fileID: 1315112854}
-  m_Father: {fileID: 766099386}
+  m_Father: {fileID: 208341063}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 3, y: -200}
+  m_AnchoredPosition: {x: -547, y: -70}
   m_SizeDelta: {x: 1920, y: 550}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1049121316
@@ -3441,7 +3465,9 @@ MonoBehaviour:
   pointSize: 40
   lineThickness: 20
   yAxisLabelsRoot: {fileID: 1315112854}
-  yAxisLabels: []
+  xAxisLabelsRoot: {fileID: 0}
+  hoverInfoText: {fileID: 0}
+  hoverMarker: {fileID: 0}
 --- !u!1 &1092912145
 GameObject:
   m_ObjectHideFlags: 0
@@ -6876,7 +6902,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1985973397}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 982.24585, y: 600.9257, z: -2.7262294}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -7268,12 +7294,14 @@ MonoBehaviour:
   linePrefab: {fileID: 3090405502378550016, guid: 8596bb0e281448446acee8567b97b8d0, type: 3}
   maxYear: 15
   defaultMinAsset: -30000
-  defaultMaxAsset: 70000
+  defaultMaxAsset: 70698
   axisMargin: 5000
   pointSize: 40
   lineThickness: 20
   yAxisLabelsRoot: {fileID: 1960451259}
-  yAxisLabels: []
+  xAxisLabelsRoot: {fileID: 0}
+  hoverInfoText: {fileID: 0}
+  hoverMarker: {fileID: 0}
 --- !u!1001 &4156668632630624737
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7382,6 +7410,6 @@ SceneRoots:
   - {fileID: 250283481}
   - {fileID: 766099386}
   - {fileID: 106932821}
-  - {fileID: 1643695244}
   - {fileID: 1985973399}
+  - {fileID: 1643695244}
   - {fileID: 863876643}

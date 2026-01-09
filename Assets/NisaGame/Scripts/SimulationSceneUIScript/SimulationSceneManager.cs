@@ -499,6 +499,7 @@ public class SimulationSceneManager : MonoBehaviour
     private void UpdateGraphViewMode()
     {
         bool showMonthly = (graphMonthlyToggle != null && graphMonthlyToggle.isOn);
+        Debug.Log($"[GraphViewMode] showMonthly = {showMonthly}");
 
         if (yearlyGraphRoot != null)
             yearlyGraphRoot.SetActive(!showMonthly);
@@ -513,15 +514,26 @@ public class SimulationSceneManager : MonoBehaviour
             detailYearLabel.gameObject.SetActive(showMonthly);
     }
 
-    public void OnSelectGraphYearly(bool isOn)
+
+    public void OnSelectGraphYearly(bool _)
     {
-        if (!isOn) return;
+        // 今のトグルの状態をログに出しておく（デバッグ用）
+        bool yearly = graphYearlyToggle != null && graphYearlyToggle.isOn;
+        bool monthly = graphMonthlyToggle != null && graphMonthlyToggle.isOn;
+        Debug.Log($"[GraphToggle] Yearly toggled -> yearly={yearly}, monthly={monthly}");
+
+        // 引数の true/false に関係なく毎回モード更新
         UpdateGraphViewMode();
     }
 
-    public void OnSelectGraphMonthly(bool isOn)
+    public void OnSelectGraphMonthly(bool _)
     {
-        if (!isOn) return;
+        bool yearly = graphYearlyToggle != null && graphYearlyToggle.isOn;
+        bool monthly = graphMonthlyToggle != null && graphMonthlyToggle.isOn;
+        Debug.Log($"[GraphToggle] Monthly toggled -> yearly={yearly}, monthly={monthly}");
+
         UpdateGraphViewMode();
     }
+
+
 }

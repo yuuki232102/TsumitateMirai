@@ -148,6 +148,9 @@ public class MonthlyGraphUI : MonoBehaviour
 
             previousPos = pos;
             hasPrev = true;
+
+            UpdateYAxisLabels(minAsset, maxAsset);
+            Debug.Log($"[MonthGraph] Rebuild: min={minAsset}, max={maxAsset}, points={monthlyAssets.Count}");
         }
     }
 
