@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;   // ← 旧UI Text 用
-using TMPro;           // ← TMP_Text 用
+using UnityEngine.UI;   // 旧 UI Text 用
+using TMPro;           // TMP_Text 用
 
 public class SimulationGraphUI : MonoBehaviour
 {
@@ -224,10 +224,14 @@ public class SimulationGraphUI : MonoBehaviour
         int n = Mathf.Max(nTMP, nGUI);
         if (n == 0) return;
 
+        // ★ここを修正：配列の 0 が「一番上」のラベルなので、
+        //   i = 0 が max、i = n-1 が min になるように t を逆向きで計算する
         for (int i = 0; i < n; i++)
         {
-            float t = n == 1 ? 0f : (float)i / (n - 1);  // 下0〜上1
+            // 上のラベルほど t が 1 に近く、下のラベルほど 0 に近くなる
+            float t = n == 1 ? 1f : (float)(n - 1 - i) / (n - 1);  // 上1〜下0
             float v = Mathf.Lerp(minAsset, maxAsset, t);
+
             int vi = Mathf.RoundToInt(v);
             string text = $"{vi.ToString("N0")}円";
 

@@ -7611,14 +7611,15 @@ MonoBehaviour:
   middleRiskReturnRate: 0.04
   highRiskReturnRate: 0.06
   graphUI: {fileID: 2125001684}
-  detailGraphUI: {fileID: 1049121316}
+  monthlyGraphUI: {fileID: 1049121316}
   detailYearSlider: {fileID: 448415845}
   detailYearLabel: {fileID: 1635021348}
   yearlyGraphRoot: {fileID: 2125001682}
   monthlyGraphRoot: {fileID: 1049121314}
   graphYearlyToggle: {fileID: 141188121}
   graphMonthlyToggle: {fileID: 186484618}
-  logUI: {fileID: 1220271064}
+  logScrollView: {fileID: 0}
+  logEntryPrefab: {fileID: 0}
 --- !u!4 &1985973399
 Transform:
   m_ObjectHideFlags: 0

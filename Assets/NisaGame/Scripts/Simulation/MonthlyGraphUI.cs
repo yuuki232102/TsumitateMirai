@@ -189,9 +189,12 @@ public class MonthlyGraphUI : MonoBehaviour
         int n = Mathf.Max(nTMP, nGUI);
         if (n == 0) return;
 
+        // ★ SimulationGraphUI と同じロジック：
+        //   配列の 0 番目（上のラベル）が最大値、最後（下のラベル）が最小値になるようにする
         for (int i = 0; i < n; i++)
         {
-            float t = n == 1 ? 0f : (float)i / (n - 1);
+            // n==1 のときは t=1 として「最大寄り」にしておく
+            float t = n == 1 ? 1f : (float)(n - 1 - i) / (n - 1); // 上1〜下0
             float v = Mathf.Lerp(minAsset, maxAsset, t);
             int vi = Mathf.RoundToInt(v);
             string text = $"{vi.ToString("N0")}円";

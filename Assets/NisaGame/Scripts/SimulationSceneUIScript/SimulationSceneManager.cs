@@ -5,18 +5,19 @@ using TMPro;
 
 public class SimulationSceneManager : MonoBehaviour
 {
-    //==============================
-    // UI 参照
-    //==============================
+    //========================
+    //  UI 参照
+    //========================
+
     [Header("年数表示 UI")]
-    [SerializeField] private TMP_Text yearText;
+    [SerializeField] private TMP_Text yearText;                 // Text_YearCounter
 
     [Header("資産表示 UI")]
-    [SerializeField] private TMP_Text currentAssetText;
+    [SerializeField] private TMP_Text currentAssetText;         // Text_CurrentAssetValue
 
     [Header("積立額 UI")]
-    [SerializeField] private TMP_Text monthlyAmountText;
-    [SerializeField] private Slider monthlyAmountSlider;
+    [SerializeField] private TMP_Text monthlyAmountText;        // Text_MonthlyAmount
+    [SerializeField] private Slider monthlyAmountSlider;        // Slider_MonthlyAmount
 
     [Header("リスク選択 UI")]
     [SerializeField] private Toggle riskLowToggle;
@@ -26,22 +27,21 @@ public class SimulationSceneManager : MonoBehaviour
 
     [Header("年数設定")]
     [SerializeField] private int maxYear = 15;
-    [SerializeField] private int currentYear = 0;    // 0年目スタート
+    [SerializeField] private int currentYear = 0;
 
     [Header("積立額設定")]
     [SerializeField] private int monthlyAmount = 1000;
     [SerializeField] private int monthlyStep = 1000;
     [SerializeField] private int minMonthlyAmount = 1000;
-    [SerializeField] private int maxMonthlyAmount = 100000;
+    [SerializeField] private int maxMonthlyAmount = 33000;
 
     [Header("資産状態（シミュレーション用）")]
-    [SerializeField] private int assetAtStartOfYear = 0;
-    [SerializeField] private int currentAsset = 0;
-    [SerializeField] private int totalPrincipal = 0;
-    private int totalElapsedMonths = 0;
+    [SerializeField] private int assetAtStartOfYear = 0;        // その年の開始時点の資産
+    [SerializeField] private int currentAsset = 0;              // 表示用 現在の資産（プレビュー込み）
+    [SerializeField] private int totalPrincipal = 0;            // 積み立てた元本の合計
 
     [Header("リスク設定")]
-    [SerializeField] private int currentRiskType = 1; // 0:低,1:中,2:高
+    [SerializeField] private int currentRiskType = 1;           // 0:低 1:中 2:高
 
     [Header("リスク別期待リターン（年率）")]
     [SerializeField] private float lowRiskReturnRate = 0.02f;
@@ -51,8 +51,8 @@ public class SimulationSceneManager : MonoBehaviour
     [Header("長期グラフ UI（年ごとの期末資産）")]
     [SerializeField] private SimulationGraphUI graphUI;
 
-    [Header("月別グラフ UI（1年の12ヶ月）")]
-    [SerializeField] private MonthlyGraphUI detailGraphUI;
+    [Header("月別グラフ UI（1年の12カ月）")]
+    [SerializeField] private MonthlyGraphUI monthlyGraphUI;
     [SerializeField] private Slider detailYearSlider;
     [SerializeField] private TMP_Text detailYearLabel;
 
@@ -63,477 +63,341 @@ public class SimulationSceneManager : MonoBehaviour
     [SerializeField] private Toggle graphMonthlyToggle;
 
     [Header("結果ログ UI")]
-    [SerializeField] private SimulationLogUI logUI;
+    [SerializeField] private ScrollRect logScrollView;
+    [SerializeField] private TMP_Text logEntryPrefab;
 
-    // 内部状態
+    //========================
+    //  内部データ
+    //========================
+
+    // 各年の期末資産
+    private readonly List<int> yearEndAssets = new List<int>();
+
+    // 年ごとの「12ヶ月の資産推移」
+    private readonly List<List<int>> monthlyAssetsPerYear = new List<List<int>>();
+
+    // スライダー更新中フラグ（無限ループ防止）
     private bool isUpdatingMonthlySlider = false;
-    private bool hasRiskCallbackInitialized = false;
 
-    // [yearIndex][monthIndex] = asset
-    private readonly List<List<int>> monthlyAssetHistory = new List<List<int>>();
+    // グラフトグルの内部更新フラグ
+    private bool isUpdatingGraphToggles = false;
 
-    //==================================================
-    // Awake / Start
-    //==================================================
-    private void Awake()
+    //========================
+    //  Unity ライフサイクル
+    //========================
+
+    private void Start()
     {
-        // 念のためステップが0以下にならないように
-        if (monthlyStep <= 0)
-            monthlyStep = 1000;
+        // --- 積立額・スライダー初期化 ---
+        if (monthlyStep <= 0) monthlyStep = 1000;
 
-        // スライダー範囲の初期設定（アタッチされてさえいればここで必ず設定）
+        monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
+        monthlyAmount = Mathf.RoundToInt(monthlyAmount / (float)monthlyStep) * monthlyStep;
+        monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
+
         if (monthlyAmountSlider != null)
         {
             monthlyAmountSlider.minValue = minMonthlyAmount;
             monthlyAmountSlider.maxValue = maxMonthlyAmount;
             monthlyAmountSlider.wholeNumbers = true;
-        }
-    }
 
-    private void Start()
-    {
-        currentYear = Mathf.Clamp(currentYear, 0, maxYear);
-
-        // 積立額を範囲内 & 刻みにスナップ
-        monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
-        monthlyAmount = Mathf.RoundToInt(monthlyAmount / (float)monthlyStep) * monthlyStep;
-        monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
-
-        // 0年目の時点での資産は「現在の毎月つみたて額」として見せる
-        assetAtStartOfYear = 0;
-        totalPrincipal = 0;
-        totalElapsedMonths = 0;
-        currentAsset = monthlyAmount;
-
-        // スライダー位置を反映
-        if (monthlyAmountSlider != null)
-        {
             isUpdatingMonthlySlider = true;
             monthlyAmountSlider.value = monthlyAmount;
             isUpdatingMonthlySlider = false;
+
+            // インスペクターで既に設定していても二重に壊れる事はない
+            monthlyAmountSlider.onValueChanged.AddListener(OnMonthlySliderChanged);
         }
 
-        // 表示更新
-        UpdateYearText();
-        UpdateMonthlyAmountText();
-        UpdateCurrentAssetText();
-        UpdateRiskLabel();
-        UpdateRiskUIInteractable();
+        // --- リスクトグル ---
+        if (riskLowToggle != null)
+            riskLowToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(0); });
+        if (riskMiddleToggle != null)
+            riskMiddleToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(1); });
+        if (riskHighToggle != null)
+            riskHighToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(2); });
 
-        // 長期グラフ初期化（0年目の点）
-        if (graphUI != null)
-        {
-            graphUI.ResetGraph();
-            graphUI.AddPoint(currentYear, currentAsset);
-        }
+        // --- グラフトグル ---
+        if (graphYearlyToggle != null)
+            graphYearlyToggle.onValueChanged.AddListener(isOn => OnGraphToggleChanged(true, isOn));
+        if (graphMonthlyToggle != null)
+            graphMonthlyToggle.onValueChanged.AddListener(isOn => OnGraphToggleChanged(false, isOn));
 
-        // ログ初期化
-        if (logUI != null)
-        {
-            logUI.ClearAll();
-        }
-
-        // 月別グラフ用スライダー
+        // --- 詳細年スライダー ---
         if (detailYearSlider != null)
         {
             detailYearSlider.minValue = 0;
-            detailYearSlider.maxValue = maxYear;
+            detailYearSlider.maxValue = 0;
             detailYearSlider.wholeNumbers = true;
             detailYearSlider.value = 0;
+            detailYearSlider.onValueChanged.AddListener(OnDetailYearSliderChanged);
         }
 
-        // 月別グラフ初期表示（まだデータ無し）
-        UpdateDetailGraphForYear(0);
+        // --- 初期状態の資産 ---
+        currentYear = 0;
+        assetAtStartOfYear = 0;
+        currentAsset = 0;
+        totalPrincipal = 0;
 
-        // グラフ表示モード反映
-        UpdateGraphViewMode();
+        yearEndAssets.Clear();
+        monthlyAssetsPerYear.Clear();
+
+        // --- グラフクリア ---
+        if (graphUI != null) graphUI.ResetGraph();
+        if (monthlyGraphUI != null) monthlyGraphUI.SetMonthlyData(null);
+
+        // --- グラフモード初期値（年別オン） ---
+        isUpdatingGraphToggles = true;
+        if (graphYearlyToggle != null) graphYearlyToggle.isOn = true;
+        if (graphMonthlyToggle != null) graphMonthlyToggle.isOn = false;
+        isUpdatingGraphToggles = false;
+        ApplyGraphMode(true);
+
+        // --- UI の初期表示 ---
+        RefreshAllUI();
     }
 
-    //==================================================
-    // 「次の年へ」ボタン
-    //==================================================
-    public void OnClickNextYear()
+    //========================
+    //  UI 更新系
+    //========================
+
+    private void RefreshAllUI()
     {
-        if (currentYear >= maxYear)
-        {
-            Debug.Log("これ以上進めません（最終年です）");
-            return;
-        }
-
-        SimulateOneYear();
-
-        currentYear++;
         UpdateYearText();
-        UpdateRiskUIInteractable();
+        UpdateCurrentAssetText();
+        UpdateMonthlyAmountText();
+        UpdateRiskUI();
     }
 
     private void UpdateYearText()
     {
         if (yearText != null)
+        {
             yearText.text = $"{currentYear}年目 / {maxYear}年";
+        }
     }
 
-    //==================================================
-    // 毎月のつみたて額
-    //==================================================
+    private void UpdateCurrentAssetText()
+    {
+        if (currentAssetText != null)
+        {
+            currentAssetText.text = $"{currentAsset.ToString("N0")}円";
+        }
+    }
+
     private void UpdateMonthlyAmountText()
     {
         if (monthlyAmountText != null)
-            monthlyAmountText.text = $"{monthlyAmount.ToString("N0")}円";
-    }
-
-    public void OnClickIncreaseMonthly()
-    {
-        monthlyAmount = Mathf.Min(monthlyAmount + monthlyStep, maxMonthlyAmount);
-        monthlyAmount = Mathf.RoundToInt(monthlyAmount / (float)monthlyStep) * monthlyStep;
-        monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
-
-        UpdateMonthlyAmountText();
-        SyncMonthlySlider();
-        UpdateCurrentYearPreviewAsset();
-    }
-
-    public void OnClickDecreaseMonthly()
-    {
-        monthlyAmount = Mathf.Max(monthlyAmount - monthlyStep, minMonthlyAmount);
-        monthlyAmount = Mathf.RoundToInt(monthlyAmount / (float)monthlyStep) * monthlyStep;
-        monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
-
-        UpdateMonthlyAmountText();
-        SyncMonthlySlider();
-        UpdateCurrentYearPreviewAsset();
-    }
-
-    /// <summary>
-    /// スライダーの OnValueChanged に接続
-    /// </summary>
-    /// <summary>
-    /// 毎月のつみたて額スライダーの変更コールバック
-    /// （引数の sliderValue は Unity の都合で 0 になることがあるので、
-    ///  実際の値は monthlyAmountSlider.value から直接読むようにする）
-    /// </summary>
-    public void OnMonthlySliderChanged(float _)
-    {
-        if (monthlyAmountSlider == null)
         {
-            Debug.LogWarning("[MonthlySlider] monthlyAmountSlider が設定されていません");
-            return;
+            monthlyAmountText.text = $"{monthlyAmount.ToString("N0")}円";
         }
+    }
 
-        // ★必ずスライダー本体から値を読む
-        float sliderValue = monthlyAmountSlider.value;
-        Debug.Log($"[MonthlySlider] arg= {_} / slider.value = {sliderValue}");
+    private void UpdateRiskUI()
+    {
+        if (riskLowToggle != null) riskLowToggle.isOn = (currentRiskType == 0);
+        if (riskMiddleToggle != null) riskMiddleToggle.isOn = (currentRiskType == 1);
+        if (riskHighToggle != null) riskHighToggle.isOn = (currentRiskType == 2);
 
+        if (riskLabelText != null)
+        {
+            string label = "中リスク";
+            if (currentRiskType == 0) label = "低リスク";
+            else if (currentRiskType == 2) label = "高リスク";
+            riskLabelText.text = label;
+        }
+    }
+
+    //========================
+    //  リスク変更
+    //========================
+
+    private void SetRiskType(int type)
+    {
+        if (currentRiskType == type) return;
+        currentRiskType = type;
+        UpdateRiskUI();
+    }
+
+    //========================
+    //  スライダー変更（毎月のつみたて額）
+    //========================
+
+    public void OnMonthlySliderChanged(float value)
+    {
         if (isUpdatingMonthlySlider) return;
 
-        // 金額にスナップ
-        int snapped = Mathf.RoundToInt(sliderValue / (float)monthlyStep) * monthlyStep;
+        int snapped = Mathf.RoundToInt(value / monthlyStep) * monthlyStep;
         snapped = Mathf.Clamp(snapped, minMonthlyAmount, maxMonthlyAmount);
 
         monthlyAmount = snapped;
 
-        // 表示を更新
-        UpdateMonthlyAmountText();
-        // （slider.value は既に正しいので、ここで Sync しても OK／しなくてもほぼ同じ）
-        SyncMonthlySlider();
-        UpdateCurrentYearPreviewAsset();
-    }
-
-
-
-    private void SyncMonthlySlider()
-    {
-        if (monthlyAmountSlider == null) return;
-
+        // スライダーをスナップ値に戻す
         isUpdatingMonthlySlider = true;
         monthlyAmountSlider.value = monthlyAmount;
         isUpdatingMonthlySlider = false;
-    }
 
-    public int GetMonthlyAmount() => monthlyAmount;
+        // テキスト更新
+        UpdateMonthlyAmountText();
 
-    //==================================================
-    // 資産表示
-    //==================================================
-    private void UpdateCurrentAssetText()
-    {
-        if (currentAssetText != null)
-            currentAssetText.text = $"{currentAsset.ToString("N0")}円";
-    }
-
-    public int GetCurrentAsset() => currentAsset;
-    public int GetTotalPrincipal() => totalPrincipal;
-    public int GetCurrentYear() => currentYear;
-    public int GetCurrentRiskType() => currentRiskType;
-
-    //==================================================
-    // リスク関連
-    //==================================================
-    private bool CanChangeRiskThisYear()
-    {
-        // 0・5・10年目だけ変更可能
-        return currentYear == 0 || currentYear == 5 || currentYear == 10;
-    }
-
-    private void UpdateRiskUIInteractable()
-    {
-        bool canEdit = CanChangeRiskThisYear();
-
-        if (riskLowToggle != null) riskLowToggle.interactable = canEdit;
-        if (riskMiddleToggle != null) riskMiddleToggle.interactable = canEdit;
-        if (riskHighToggle != null) riskHighToggle.interactable = canEdit;
-    }
-
-    public void OnSelectRiskLow(bool isOn)
-    {
-        if (!isOn) return;
-
-        currentRiskType = 0;
-        UpdateRiskLabel();
-
-        if (!hasRiskCallbackInitialized)
-        {
-            hasRiskCallbackInitialized = true;
-            return;
-        }
-
-        UpdateCurrentYearPreviewAsset();
-    }
-
-    public void OnSelectRiskMiddle(bool isOn)
-    {
-        if (!isOn) return;
-
-        currentRiskType = 1;
-        UpdateRiskLabel();
-
-        if (!hasRiskCallbackInitialized)
-        {
-            hasRiskCallbackInitialized = true;
-            return;
-        }
-
-        UpdateCurrentYearPreviewAsset();
-    }
-
-    public void OnSelectRiskHigh(bool isOn)
-    {
-        if (!isOn) return;
-
-        currentRiskType = 2;
-        UpdateRiskLabel();
-
-        if (!hasRiskCallbackInitialized)
-        {
-            hasRiskCallbackInitialized = true;
-            return;
-        }
-
-        UpdateCurrentYearPreviewAsset();
-    }
-
-    private void UpdateRiskLabel()
-    {
-        if (riskLabelText == null) return;
-
-        string label;
-        switch (currentRiskType)
-        {
-            case 0: label = "低リスク"; break;
-            case 1: label = "中リスク"; break;
-            case 2: label = "高リスク"; break;
-            default: label = "不明"; break;
-        }
-
-        riskLabelText.text = $"リスクタイプ：{label}";
-    }
-
-    private float GetAnnualReturnRate()
-    {
-        switch (currentRiskType)
-        {
-            case 0: return lowRiskReturnRate;
-            case 1: return middleRiskReturnRate;
-            case 2: return highRiskReturnRate;
-            default: return middleRiskReturnRate;
-        }
-    }
-
-    //==================================================
-    // プレビュー用：この年の設定で1年回したらいくらか
-    //==================================================
-    private void UpdateCurrentYearPreviewAsset()
-    {
-        if (currentYear == 0)
-        {
-            // 0年目だけは「現在の毎月つみたて額」をそのまま見せる
-            currentAsset = monthlyAmount;
-        }
-        else
-        {
-            float rate = GetAnnualReturnRate();
-            int simulated = SimulateYearValue(assetAtStartOfYear, monthlyAmount, rate);
-            currentAsset = simulated;
-        }
+        // ★ここが重要★
+        // 「次の年へ」を押した結果の資産 assetAtStartOfYear に
+        // 今年の積立額1回分だけ足した値をプレビューとして表示する
+        currentAsset = assetAtStartOfYear + monthlyAmount;
 
         UpdateCurrentAssetText();
     }
 
-    private int SimulateYearValue(int startAsset, int monthly, float annualRate)
-    {
-        float asset = startAsset;
-        float monthlyRate = annualRate / 12f;
+    //========================
+    //  次の年へボタン
+    //========================
 
-        for (int i = 0; i < 12; i++)
+    public void OnClickNextYear()
+    {
+        if (currentYear >= maxYear) return;
+
+        // この年の 12ヶ月をシミュレート
+        List<int> monthlyAssets = new List<int>();
+        float monthlyRate = GetMonthlyRate();
+
+        int asset = assetAtStartOfYear;
+
+        for (int month = 0; month < 12; month++)
         {
-            asset += monthly;
-            asset *= (1f + monthlyRate);
+            asset += monthlyAmount;          // 積立
+            totalPrincipal += monthlyAmount;
+
+            float afterReturn = asset * (1f + monthlyRate);
+            asset = Mathf.RoundToInt(afterReturn);
+
+            monthlyAssets.Add(asset);
         }
 
-        return Mathf.RoundToInt(asset);
-    }
+        // 年末資産を確定
+        assetAtStartOfYear = asset;
+        currentAsset = asset;
+        currentYear++;
 
-    //==================================================
-    // 本番シミュレーション（次の年へ）
-    //==================================================
-    private void SimulateOneYear()
-    {
-        int startAsset = assetAtStartOfYear;
-        int monthly = monthlyAmount;
-        float rate = GetAnnualReturnRate();
+        // データを保存
+        yearEndAssets.Add(asset);
+        monthlyAssetsPerYear.Add(monthlyAssets);
 
-        int endAsset = SimulateOneYearWithMonthlyLog(currentYear, startAsset, monthly, rate);
-
-        currentAsset = endAsset;
-        UpdateCurrentAssetText();
-
-        int yearlyContribution = monthly * 12;
-        totalPrincipal += yearlyContribution;
-
-        assetAtStartOfYear = currentAsset;
-
+        // グラフ更新（年別）
         if (graphUI != null)
         {
-            int newYear = currentYear + 1;
-            graphUI.AddPoint(newYear, currentAsset);
-        }
-
-        UpdateDetailGraphForYear(currentYear);
-
-        if (detailYearSlider != null)
-            detailYearSlider.value = currentYear;
-    }
-
-    private int SimulateOneYearWithMonthlyLog(
-        int yearIndex,
-        int startAsset,
-        int monthly,
-        float annualRate
-    )
-    {
-        float asset = startAsset;
-        float monthlyRate = annualRate / 12f;
-
-        List<int> yearMonthlyList = new List<int>();
-
-        for (int month = 1; month <= 12; month++)
-        {
-            asset += monthly;
-            asset *= (1f + monthlyRate);
-
-            int assetInt = Mathf.RoundToInt(asset);
-            totalElapsedMonths++;
-            yearMonthlyList.Add(assetInt);
-
-            if (logUI != null)
+            graphUI.ResetGraph();
+            for (int i = 0; i < yearEndAssets.Count; i++)
             {
-                logUI.AddMonthlyRecord(
-                    totalElapsedMonths,
-                    yearIndex,
-                    month,
-                    assetInt,
-                    monthly,
-                    annualRate
-                );
+                graphUI.AddPoint(i + 1, yearEndAssets[i]); // 1年〜で表示
             }
         }
 
-        // 年別の月次履歴として保存
-        if (yearIndex >= 0)
+        // グラフ更新（月別）…直近の年を表示
+        if (monthlyGraphUI != null)
         {
-            while (monthlyAssetHistory.Count <= yearIndex)
-                monthlyAssetHistory.Add(new List<int>());
-
-            monthlyAssetHistory[yearIndex] = yearMonthlyList;
+            int idx = Mathf.Clamp(currentYear - 1, 0, monthlyAssetsPerYear.Count - 1);
+            monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[idx]);
         }
 
-        return Mathf.RoundToInt(asset);
-    }
-
-    //==================================================
-    // 月別グラフ表示
-    //==================================================
-    public void OnDetailYearSliderChanged(float sliderValue)
-    {
-        int yearIndex = Mathf.RoundToInt(sliderValue);
-        UpdateDetailGraphForYear(yearIndex);
-    }
-
-    private void UpdateDetailGraphForYear(int yearIndex)
-    {
-        if (detailGraphUI == null) return;
-
-        List<int> data = null;
-        if (yearIndex >= 0 && yearIndex < monthlyAssetHistory.Count)
-            data = monthlyAssetHistory[yearIndex];
-
-        detailGraphUI.SetMonthlyData(data);
-
-        if (detailYearLabel != null)
-            detailYearLabel.text = $"{yearIndex}年目の月別推移";
-    }
-
-    //==================================================
-    // グラフ表示モード切り替え
-    //==================================================
-    private void UpdateGraphViewMode()
-    {
-        bool showMonthly = (graphMonthlyToggle != null && graphMonthlyToggle.isOn);
-        Debug.Log($"[GraphViewMode] showMonthly = {showMonthly}");
-
-        if (yearlyGraphRoot != null)
-            yearlyGraphRoot.SetActive(!showMonthly);
-
-        if (monthlyGraphRoot != null)
-            monthlyGraphRoot.SetActive(showMonthly);
-
+        // 詳細年スライダー範囲を更新
         if (detailYearSlider != null)
-            detailYearSlider.gameObject.SetActive(showMonthly);
+        {
+            detailYearSlider.maxValue = Mathf.Max(0, yearEndAssets.Count - 1);
+            detailYearSlider.value = yearEndAssets.Count - 1;
+        }
 
-        if (detailYearLabel != null)
-            detailYearLabel.gameObject.SetActive(showMonthly);
+        UpdateDetailYearLabel();
+        RefreshAllUI();
+
+        // ログも追加（任意）
+        AppendLog($"{currentYear}年目終了 : 資産 {currentAsset.ToString("N0")}円");
     }
 
-
-    public void OnSelectGraphYearly(bool _)
+    private float GetMonthlyRate()
     {
-        // 今のトグルの状態をログに出しておく（デバッグ用）
-        bool yearly = graphYearlyToggle != null && graphYearlyToggle.isOn;
-        bool monthly = graphMonthlyToggle != null && graphMonthlyToggle.isOn;
-        Debug.Log($"[GraphToggle] Yearly toggled -> yearly={yearly}, monthly={monthly}");
+        float yearly = middleRiskReturnRate;
 
-        // 引数の true/false に関係なく毎回モード更新
-        UpdateGraphViewMode();
+        if (currentRiskType == 0) yearly = lowRiskReturnRate;
+        else if (currentRiskType == 2) yearly = highRiskReturnRate;
+
+        // 年率 → 月率
+        return Mathf.Pow(1f + yearly, 1f / 12f) - 1f;
     }
 
-    public void OnSelectGraphMonthly(bool _)
+    //========================
+    //  月別グラフの年変更
+    //========================
+
+    private void OnDetailYearSliderChanged(float value)
     {
-        bool yearly = graphYearlyToggle != null && graphYearlyToggle.isOn;
-        bool monthly = graphMonthlyToggle != null && graphMonthlyToggle.isOn;
-        Debug.Log($"[GraphToggle] Monthly toggled -> yearly={yearly}, monthly={monthly}");
+        int index = Mathf.RoundToInt(value);
+        UpdateDetailYearLabel();
 
-        UpdateGraphViewMode();
+        if (index < 0 || index >= monthlyAssetsPerYear.Count) return;
+
+        if (monthlyGraphUI != null)
+        {
+            monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[index]);
+        }
     }
 
+    private void UpdateDetailYearLabel()
+    {
+        if (detailYearLabel == null || detailYearSlider == null) return;
 
+        int idx = Mathf.RoundToInt(detailYearSlider.value);
+        detailYearLabel.text = $"{idx + 1}年目の月別グラフ";
+    }
+
+    //========================
+    //  グラフ表示切り替え
+    //========================
+
+    private void OnGraphToggleChanged(bool yearlyToggle, bool isOn)
+    {
+        if (!isOn) // OFF にされた時の扱い
+        {
+            // どちらも OFF になるのを防ぐ
+            if (!graphYearlyToggle.isOn && !graphMonthlyToggle.isOn)
+            {
+                isUpdatingGraphToggles = true;
+                if (yearlyToggle) graphYearlyToggle.isOn = true;
+                else graphMonthlyToggle.isOn = true;
+                isUpdatingGraphToggles = false;
+            }
+            return;
+        }
+
+        if (isUpdatingGraphToggles) return;
+
+        bool showYearly = yearlyToggle;
+
+        isUpdatingGraphToggles = true;
+        if (graphYearlyToggle != null) graphYearlyToggle.isOn = showYearly;
+        if (graphMonthlyToggle != null) graphMonthlyToggle.isOn = !showYearly;
+        isUpdatingGraphToggles = false;
+
+        ApplyGraphMode(showYearly);
+    }
+
+    private void ApplyGraphMode(bool showYearly)
+    {
+        if (yearlyGraphRoot != null) yearlyGraphRoot.SetActive(showYearly);
+        if (monthlyGraphRoot != null) monthlyGraphRoot.SetActive(!showYearly);
+    }
+
+    //========================
+    //  ログ出力（任意）
+    //========================
+
+    private void AppendLog(string message)
+    {
+        if (logScrollView == null || logEntryPrefab == null) return;
+
+        TMP_Text entry = Instantiate(logEntryPrefab, logScrollView.content);
+        entry.text = message;
+
+        Canvas.ForceUpdateCanvases();
+        logScrollView.verticalNormalizedPosition = 0f;
+    }
 }
