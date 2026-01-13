@@ -48,6 +48,7 @@ public class NisaIntroPanelController : MonoBehaviour
     public void OnClickBackToTitle()
     {
         SceneManager.LoadScene(titleSceneName);
+
     }
 
     private void ShowPanel(int index)
