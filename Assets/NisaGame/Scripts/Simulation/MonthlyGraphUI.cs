@@ -12,16 +12,15 @@ public class MonthlyGraphUI : MonoBehaviour
     [SerializeField] private RectTransform pointPrefab;
     [SerializeField] private RectTransform linePrefab;
 
-    [Header("縦軸設定（デフォルト）")]
-    [SerializeField] private float defaultMinAsset = -30000f;
-    [SerializeField] private float defaultMaxAsset = 70000f;
-    [SerializeField] private float axisMargin = 5000f;
+    [Header("縦軸設定（0中心・±上限 値）")]
+    [SerializeField] private float defaultAbsMax = 800000f;
+    [SerializeField] private float axisMargin = 50000f;
 
     [Header("描画設定")]
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
 
-    [Header("Y軸ラベルの親")]
+    [Header("Y軸ラベルの親（3つ推奨）")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
 
     [Header("X軸ラベルの親")]
@@ -92,33 +91,33 @@ public class MonthlyGraphUI : MonoBehaviour
 
         ClearGraphVisuals();
 
+        float minAsset, maxAsset;
+
         if (monthlyAssets.Count == 0)
         {
-            UpdateYAxisLabels(defaultMinAsset, defaultMaxAsset);
+            minAsset = -defaultAbsMax;
+            maxAsset = defaultAbsMax;
+            UpdateYAxisLabels(minAsset, maxAsset);
             UpdateXAxisLabels(12);
             return;
         }
 
-        float minAsset = monthlyAssets[0];
-        float maxAsset = monthlyAssets[0];
+        float rawMin = monthlyAssets[0];
+        float rawMax = monthlyAssets[0];
 
         for (int i = 1; i < monthlyAssets.Count; i++)
         {
-            if (monthlyAssets[i] < minAsset) minAsset = monthlyAssets[i];
-            if (monthlyAssets[i] > maxAsset) maxAsset = monthlyAssets[i];
+            if (monthlyAssets[i] < rawMin) rawMin = monthlyAssets[i];
+            if (monthlyAssets[i] > rawMax) rawMax = monthlyAssets[i];
         }
 
-        minAsset -= axisMargin;
-        maxAsset += axisMargin;
+        float absMaxData = Mathf.Max(Mathf.Abs(rawMin), Mathf.Abs(rawMax));
+        absMaxData += axisMargin;
 
-        if (minAsset > 0) minAsset = 0;
-        if (maxAsset < 0) maxAsset = 0;
+        float finalAbsMax = Mathf.Max(absMaxData, defaultAbsMax);
 
-        if (Mathf.Approximately(minAsset, maxAsset))
-        {
-            minAsset -= 1000f;
-            maxAsset += 1000f;
-        }
+        minAsset = -finalAbsMax;
+        maxAsset = finalAbsMax;
 
         UpdateYAxisLabels(minAsset, maxAsset);
         UpdateXAxisLabels(monthlyAssets.Count);
@@ -189,14 +188,24 @@ public class MonthlyGraphUI : MonoBehaviour
         int n = Mathf.Max(nTMP, nGUI);
         if (n == 0) return;
 
-        // ★ SimulationGraphUI と同じロジック：
-        //   配列の 0 番目（上のラベル）が最大値、最後（下のラベル）が最小値になるようにする
+        float absMax = Mathf.Max(Mathf.Abs(minAsset), Mathf.Abs(maxAsset));
+
         for (int i = 0; i < n; i++)
         {
-            // n==1 のときは t=1 として「最大寄り」にしておく
-            float t = n == 1 ? 1f : (float)(n - 1 - i) / (n - 1); // 上1〜下0
-            float v = Mathf.Lerp(minAsset, maxAsset, t);
-            int vi = Mathf.RoundToInt(v);
+            float value;
+            if (n == 3)
+            {
+                if (i == 0) value = absMax;           // 上
+                else if (i == 1) value = 0f;         // 中央
+                else value = -absMax;                // 下
+            }
+            else
+            {
+                float t = n == 1 ? 0f : (float)i / (n - 1);
+                value = Mathf.Lerp(-absMax, absMax, t);
+            }
+
+            int vi = Mathf.RoundToInt(value);
             string text = $"{vi.ToString("N0")}円";
 
             if (i < nTMP && yAxisLabelsTMP[i] != null) yAxisLabelsTMP[i].text = text;

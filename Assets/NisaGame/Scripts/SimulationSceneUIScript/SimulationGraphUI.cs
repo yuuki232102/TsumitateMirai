@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;   // 旧 UI Text 用
-using TMPro;           // TMP_Text 用
+using UnityEngine.UI;
+using TMPro;
 
 public class SimulationGraphUI : MonoBehaviour
 {
@@ -15,19 +15,21 @@ public class SimulationGraphUI : MonoBehaviour
     [Header("基本設定")]
     [SerializeField] private int maxYear = 15;
 
-    [Header("縦軸設定（デフォルト）")]
-    [SerializeField] private float defaultMinAsset = -30000f;
-    [SerializeField] private float defaultMaxAsset = 70000f;
-    [SerializeField] private float axisMargin = 5000f;
+    [Header("縦軸設定（0中心・±上限 値）")]
+    // 区間ごとの「絶対値デフォルト上限」
+    [SerializeField] private float defaultAbsMaxSegment1 = 800000f; // 0〜5年
+    [SerializeField] private float defaultAbsMaxSegment2 = 800000f; // 6〜10年
+    [SerializeField] private float defaultAbsMaxSegment3 = 800000f; // 11〜15年
+    [SerializeField] private float axisMargin = 50000f;             // 余白
 
     [Header("描画設定")]
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
 
-    [Header("Y軸ラベルの親（子に Text / TMP_Text を並べる）")]
+    [Header("Y軸ラベルの親（3つ推奨）")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
 
-    [Header("X軸ラベルの親（子に Text / TMP_Text を並べる）")]
+    [Header("X軸ラベルの親")]
     [SerializeField] private RectTransform xAxisLabelsRoot;
 
     [Header("カーソル表示UI（任意）")]
@@ -81,8 +83,9 @@ public class SimulationGraphUI : MonoBehaviour
 
         ClearGraphVisuals();
 
-        // デフォルト範囲でラベル初期化
-        UpdateYAxisLabels(defaultMinAsset, defaultMaxAsset);
+        // デフォルト範囲でラベル初期化（0〜±defaultAbsMaxSegment1）
+        float absMax = defaultAbsMaxSegment1;
+        UpdateYAxisLabels(-absMax, absMax);
         UpdateXAxisLabels();
 
         // ホバー表示リセット
@@ -115,6 +118,20 @@ public class SimulationGraphUI : MonoBehaviour
         }
     }
 
+    private float GetDefaultAbsMaxForCurrentYears()
+    {
+        // 0年目しかない時は 0〜5年扱い
+        int lastYear = 0;
+        if (years.Count > 0)
+        {
+            lastYear = years[years.Count - 1];
+        }
+
+        if (lastYear <= 5) return defaultAbsMaxSegment1;
+        if (lastYear <= 10) return defaultAbsMaxSegment2;
+        return defaultAbsMaxSegment3;
+    }
+
     private void RebuildGraph()
     {
         if (graphRect == null) return;
@@ -122,35 +139,42 @@ public class SimulationGraphUI : MonoBehaviour
         ClearGraphVisuals();
         pointPositions.Clear();
 
+        float minAsset, maxAsset;
+
         if (years.Count == 0)
         {
-            UpdateYAxisLabels(defaultMinAsset, defaultMaxAsset);
+            // データなし → デフォルト
+            float absMax = defaultAbsMaxSegment1;
+            minAsset = -absMax;
+            maxAsset = absMax;
+            UpdateYAxisLabels(minAsset, maxAsset);
             UpdateXAxisLabels();
             return;
         }
 
         // ---- Y軸レンジ計算 ----
-        float minAsset = assets[0];
-        float maxAsset = assets[0];
+        float rawMin = assets[0];
+        float rawMax = assets[0];
 
         for (int i = 1; i < assets.Count; i++)
         {
-            if (assets[i] < minAsset) minAsset = assets[i];
-            if (assets[i] > maxAsset) maxAsset = assets[i];
+            if (assets[i] < rawMin) rawMin = assets[i];
+            if (assets[i] > rawMax) rawMax = assets[i];
         }
 
-        minAsset -= axisMargin;
-        maxAsset += axisMargin;
+        // 実データから絶対値最大を取得
+        float absMaxData = Mathf.Max(Mathf.Abs(rawMin), Mathf.Abs(rawMax));
 
-        // 0 を必ず範囲に含める
-        if (minAsset > 0) minAsset = 0;
-        if (maxAsset < 0) maxAsset = 0;
+        // 余白を足す
+        absMaxData += axisMargin;
 
-        if (Mathf.Approximately(minAsset, maxAsset))
-        {
-            minAsset -= 1000f;
-            maxAsset += 1000f;
-        }
+        // 区間ごとのデフォルト上限と比較
+        float absMaxDefault = GetDefaultAbsMaxForCurrentYears();
+        float finalAbsMax = Mathf.Max(absMaxData, absMaxDefault);
+
+        // ±対称レンジ
+        minAsset = -finalAbsMax;
+        maxAsset = finalAbsMax;
 
         UpdateYAxisLabels(minAsset, maxAsset);
         UpdateXAxisLabels();
@@ -168,7 +192,7 @@ public class SimulationGraphUI : MonoBehaviour
             float tX = maxYear > 0 ? (float)years[i] / maxYear : 0f;
             float x = tX * width;
 
-            // Y：資産を 0〜1 に正規化
+            // Y：資産を 0〜1 に正規化（下が minAsset, 上が maxAsset）
             float tY = Mathf.InverseLerp(minAsset, maxAsset, assets[i]);
             float y = tY * height;
 
@@ -224,15 +248,27 @@ public class SimulationGraphUI : MonoBehaviour
         int n = Mathf.Max(nTMP, nGUI);
         if (n == 0) return;
 
-        // ★ここを修正：配列の 0 が「一番上」のラベルなので、
-        //   i = 0 が max、i = n-1 が min になるように t を逆向きで計算する
+        // 対称レンジの絶対値
+        float absMax = Mathf.Max(Mathf.Abs(minAsset), Mathf.Abs(maxAsset));
+
+        // 3 ラベル想定：上 = +absMax, 中 = 0, 下 = -absMax
         for (int i = 0; i < n; i++)
         {
-            // 上のラベルほど t が 1 に近く、下のラベルほど 0 に近くなる
-            float t = n == 1 ? 1f : (float)(n - 1 - i) / (n - 1);  // 上1〜下0
-            float v = Mathf.Lerp(minAsset, maxAsset, t);
+            float value;
+            if (n == 3)
+            {
+                if (i == 0) value = absMax;           // 一番上
+                else if (i == 1) value = 0f;         // 真ん中
+                else value = -absMax;                // 一番下
+            }
+            else
+            {
+                // 一応その他の個数にも対応：線形に振る
+                float t = n == 1 ? 0f : (float)i / (n - 1);
+                value = Mathf.Lerp(-absMax, absMax, t);
+            }
 
-            int vi = Mathf.RoundToInt(v);
+            int vi = Mathf.RoundToInt(value);
             string text = $"{vi.ToString("N0")}円";
 
             if (i < nTMP && yAxisLabelsTMP[i] != null) yAxisLabelsTMP[i].text = text;

@@ -142,9 +142,8 @@ public class SimulationSceneManager : MonoBehaviour
         yearEndAssets.Clear();
         monthlyAssetsPerYear.Clear();
 
-        // --- グラフクリア ---
-        if (graphUI != null) graphUI.ResetGraph();
-        if (monthlyGraphUI != null) monthlyGraphUI.SetMonthlyData(null);
+        // --- グラフ初期化（B案：0年目・0円の点を1つだけ置く） ---
+        InitializeGraphs();
 
         // --- グラフモード初期値（年別オン） ---
         isUpdatingGraphToggles = true;
@@ -240,9 +239,8 @@ public class SimulationSceneManager : MonoBehaviour
         // テキスト更新
         UpdateMonthlyAmountText();
 
-        // ★ここが重要★
-        // 「次の年へ」を押した結果の資産 assetAtStartOfYear に
-        // 今年の積立額1回分だけ足した値をプレビューとして表示する
+        // ★「次の年へ」を押した結果の資産 assetAtStartOfYear に
+        //   今年の積立額1回分だけ足した値をプレビューとして表示
         currentAsset = assetAtStartOfYear + monthlyAmount;
 
         UpdateCurrentAssetText();
@@ -282,14 +280,11 @@ public class SimulationSceneManager : MonoBehaviour
         yearEndAssets.Add(asset);
         monthlyAssetsPerYear.Add(monthlyAssets);
 
-        // グラフ更新（年別）
+        // ★グラフ更新（年別）
+        //  Reset せず、0年目(0,0) → 1年目 → 2年目… と追加していく
         if (graphUI != null)
         {
-            graphUI.ResetGraph();
-            for (int i = 0; i < yearEndAssets.Count; i++)
-            {
-                graphUI.AddPoint(i + 1, yearEndAssets[i]); // 1年〜で表示
-            }
+            graphUI.AddPoint(currentYear, currentAsset);
         }
 
         // グラフ更新（月別）…直近の年を表示
@@ -312,6 +307,34 @@ public class SimulationSceneManager : MonoBehaviour
         // ログも追加（任意）
         AppendLog($"{currentYear}年目終了 : 資産 {currentAsset.ToString("N0")}円");
     }
+
+    //========================
+    //  年別グラフ＆月別グラフの初期化（B案）
+    //========================
+
+    private void InitializeGraphs()
+    {
+        // 年別グラフ
+        if (graphUI != null)
+        {
+            // いったんリセット
+            graphUI.ResetGraph();
+
+            // ★ 0年目の開始点（資産0円）を 1 点だけ登録する
+            graphUI.AddPoint(0, 0);
+        }
+
+        // 月別グラフ（表示だけクリア）
+        if (monthlyGraphUI != null)
+        {
+            // null または空リストを渡して「何も描かない」状態にしておく
+            monthlyGraphUI.SetMonthlyData(null);
+        }
+    }
+
+    //========================
+    //  利率計算
+    //========================
 
     private float GetMonthlyRate()
     {
