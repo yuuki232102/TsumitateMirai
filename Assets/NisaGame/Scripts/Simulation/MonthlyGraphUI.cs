@@ -32,6 +32,13 @@ public class MonthlyGraphUI : MonoBehaviour
     [Header("X軸ラベルの親")]
     [SerializeField] private RectTransform xAxisLabelsRoot;
 
+    [Header("カーソル表示UI（任意）")]
+    [SerializeField] private TMP_Text hoverInfoText;        // 例: 「7月 : 123,456円」
+    [SerializeField] private RectTransform hoverMarker;     // グラフ上の小さなマーカー
+
+    [Header("ホバー感度設定")]
+    [SerializeField] private float hoverSnapMaxDistance = 40f; // この距離以内ならホバー有効
+
     //========================================================
     //  内部状態
     //========================================================
@@ -45,6 +52,9 @@ public class MonthlyGraphUI : MonoBehaviour
     // その年の 12ヶ月分の資産推移
     private readonly List<int> monthlyAssets = new List<int>();
 
+    // 各点のローカル座標（graphRect 左下原点）
+    private readonly List<Vector2> pointPositions = new List<Vector2>();
+
     //========================================================
     //  Unity ライフサイクル
     //========================================================
@@ -52,6 +62,11 @@ public class MonthlyGraphUI : MonoBehaviour
     private void Awake()
     {
         CacheAxisLabels();
+    }
+
+    private void Update()
+    {
+        UpdateHover();
     }
 
     private void CacheAxisLabels()
@@ -90,14 +105,16 @@ public class MonthlyGraphUI : MonoBehaviour
     //  描画
     //========================================================
 
-    /// <summary>グラフの子要素（点・線）を全削除</summary>
+    /// <summary>グラフの子要素（点・線）を全削除（ホバーマーカーは残す）</summary>
     private void ClearGraphVisuals()
     {
         if (graphRect == null) return;
 
         for (int i = graphRect.childCount - 1; i >= 0; i--)
         {
-            Destroy(graphRect.GetChild(i).gameObject);
+            var child = graphRect.GetChild(i);
+            if (hoverMarker != null && child == hoverMarker) continue;
+            Destroy(child.gameObject);
         }
     }
 
@@ -107,6 +124,7 @@ public class MonthlyGraphUI : MonoBehaviour
         if (graphRect == null) return;
 
         ClearGraphVisuals();
+        pointPositions.Clear();
 
         float minAsset;
         float maxAsset;
@@ -122,6 +140,9 @@ public class MonthlyGraphUI : MonoBehaviour
 
             UpdateYAxisLabels(minAsset, maxAsset);
             UpdateXAxisLabels(12); // 12ヶ月分の目盛り
+
+            if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
+            if (hoverInfoText != null) hoverInfoText.text = "";
             return;
         }
 
@@ -173,6 +194,7 @@ public class MonthlyGraphUI : MonoBehaviour
             float y = tY * height;
 
             Vector2 pos = new Vector2(x, y);
+            pointPositions.Add(pos);
 
             // ---- 点 ----
             if (pointPrefab != null)
@@ -236,9 +258,9 @@ public class MonthlyGraphUI : MonoBehaviour
             string text;
             if (n >= 3)
             {
-                if (i == 0) text = topText;    // 一番上
-                else if (i == 1) text = middleText; // 真ん中
-                else text = bottomText; // 一番下
+                if (i == 0) text = topText;          // 一番上
+                else if (i == 1) text = middleText;  // 真ん中
+                else text = bottomText;              // 一番下
             }
             else
             {
@@ -278,6 +300,84 @@ public class MonthlyGraphUI : MonoBehaviour
 
             if (i < nTMP && xAxisLabelsTMP[i] != null) xAxisLabelsTMP[i].text = text;
             if (i < nGUI && xAxisLabelsUGUI[i] != null) xAxisLabelsUGUI[i].text = text;
+        }
+    }
+
+    //========================================================
+    //  ホバー表示
+    //========================================================
+
+    private void UpdateHover()
+    {
+        if (graphRect == null || pointPositions.Count == 0)
+        {
+            if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
+            if (hoverInfoText != null) hoverInfoText.text = "";
+            return;
+        }
+
+        // 画面上のマウス座標 → graphRect のローカル座標
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                graphRect, Input.mousePosition, null, out Vector2 local))
+        {
+            return;
+        }
+
+        Rect r = graphRect.rect;
+
+        // pivot 中心のローカル座標 → 左下(0,0)基準の座標に変換
+        Vector2 fromBL = local - new Vector2(r.xMin, r.yMin);
+        float width = r.width;
+        float height = r.height;
+
+        // グラフ範囲外ならホバー非表示
+        if (fromBL.x < 0 || fromBL.x > width || fromBL.y < 0 || fromBL.y > height)
+        {
+            if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
+            if (hoverInfoText != null) hoverInfoText.text = "";
+            return;
+        }
+
+        //----------------------------------------------------
+        // 一番近い点を距離で探す
+        //----------------------------------------------------
+        int closestIndex = -1;
+        float closestSqrDist = float.MaxValue;
+
+        for (int i = 0; i < pointPositions.Count; i++)
+        {
+            Vector2 diff = pointPositions[i] - fromBL; // 同じローカル座標系
+            float sqrDist = diff.sqrMagnitude;
+
+            if (sqrDist < closestSqrDist)
+            {
+                closestSqrDist = sqrDist;
+                closestIndex = i;
+            }
+        }
+
+        // 線／点から遠すぎる場合はホバーしない
+        if (closestIndex < 0 || closestSqrDist > hoverSnapMaxDistance * hoverSnapMaxDistance)
+        {
+            if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
+            if (hoverInfoText != null) hoverInfoText.text = "";
+            return;
+        }
+
+        int monthIndex = closestIndex;          // 0-based
+        int month = monthIndex + 1;             // 表示用は 1月〜
+        int asset = monthlyAssets[monthIndex];
+
+        if (hoverInfoText != null)
+        {
+            hoverInfoText.text = $"{month}月 : {asset.ToString("N0")}円";
+        }
+
+        if (hoverMarker != null)
+        {
+            hoverMarker.gameObject.SetActive(true);
+            hoverMarker.anchorMin = hoverMarker.anchorMax = new Vector2(0f, 0f);
+            hoverMarker.anchoredPosition = pointPositions[closestIndex];
         }
     }
 }

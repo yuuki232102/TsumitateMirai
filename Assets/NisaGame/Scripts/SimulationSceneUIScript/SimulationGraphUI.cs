@@ -40,6 +40,9 @@ public class SimulationGraphUI : MonoBehaviour
     [SerializeField] private TMP_Text hoverInfoText;        // 例: 「7年目 : 671,709円」
     [SerializeField] private RectTransform hoverMarker;     // グラフ上の小さなマーカー
 
+    [Header("ホバー感度設定")]
+    [SerializeField] private float hoverSnapMaxDistance = 40f; // この距離以内ならホバー有効
+
     //========================================================
     //  内部状態
     //========================================================
@@ -377,14 +380,34 @@ public class SimulationGraphUI : MonoBehaviour
             return;
         }
 
-        // X位置から最も近いデータ点を求める
-        float tX = Mathf.Clamp01(fromBL.x / width);
-        int index = Mathf.Clamp(
-            Mathf.RoundToInt(tX * (pointPositions.Count - 1)),
-            0, pointPositions.Count - 1);
+        //----------------------------------------------------
+        // 一番近い点を距離で探す
+        //----------------------------------------------------
+        int closestIndex = -1;
+        float closestSqrDist = float.MaxValue;
 
-        int year = years[index];
-        int asset = assets[index];
+        for (int i = 0; i < pointPositions.Count; i++)
+        {
+            Vector2 diff = pointPositions[i] - fromBL; // 同じローカル座標系
+            float sqrDist = diff.sqrMagnitude;
+
+            if (sqrDist < closestSqrDist)
+            {
+                closestSqrDist = sqrDist;
+                closestIndex = i;
+            }
+        }
+
+        // 線／点から遠すぎる場合はホバーしない
+        if (closestIndex < 0 || closestSqrDist > hoverSnapMaxDistance * hoverSnapMaxDistance)
+        {
+            if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
+            if (hoverInfoText != null) hoverInfoText.text = "";
+            return;
+        }
+
+        int year = years[closestIndex];
+        int asset = assets[closestIndex];
 
         if (hoverInfoText != null)
         {
@@ -395,7 +418,7 @@ public class SimulationGraphUI : MonoBehaviour
         {
             hoverMarker.gameObject.SetActive(true);
             hoverMarker.anchorMin = hoverMarker.anchorMax = new Vector2(0f, 0f);
-            hoverMarker.anchoredPosition = pointPositions[index];
+            hoverMarker.anchoredPosition = pointPositions[closestIndex];
         }
     }
 }
