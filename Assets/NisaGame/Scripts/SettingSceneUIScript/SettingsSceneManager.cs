@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
@@ -14,35 +14,37 @@ public class SettingsSceneManager : MonoBehaviour
     [SerializeField] private Toggle toggleFullScreen;
 
     [Header("Other UI")]
-    [SerializeField] private Text versionText;         // TextMeshPro ‚ğg‚¤‚È‚ç Text ‚Å‚Í‚È‚­ TMP_Text ‚É‚·‚é
+    [SerializeField] private Text versionText;         // TextMeshPro ã‚’ä½¿ã†ãªã‚‰ Text ã§ã¯ãªã TMP_Text ã«ã™ã‚‹
     [SerializeField] private string titleSceneName = "TitleScene";
 
-    // PlayerPrefs ‚ÌƒL[
+    // PlayerPrefs ã®ã‚­ãƒ¼
     private const string KEY_BGM_ON = "BgmOn";
     private const string KEY_SE_ON = "SeOn";
     private const string KEY_FULLSCREEN = "FullScreen";
 
     private void Start()
     {
-        // ƒo[ƒWƒ‡ƒ“•\¦i‰E‰ºj
+        // ãƒãƒ¼ã‚¸ãƒ§ãƒ³è¡¨ç¤ºï¼ˆå³ä¸‹ï¼‰
         if (versionText != null)
         {
-            versionText.text = "ƒo[ƒWƒ‡ƒ“F" + Application.version;
+            versionText.text = "ãƒãƒ¼ã‚¸ãƒ§ãƒ³ï¼š" + Application.version;
         }
 
-        // •Û‘¶Ï‚İİ’è‚ğ“Ç‚İ‚ñ‚Å UI ‚É”½‰f
+        // ä¿å­˜æ¸ˆã¿è¨­å®šã‚’èª­ã¿è¾¼ã‚“ã§ UI ã«åæ˜ 
         LoadSettingsToUI();
     }
 
-    // ====== UI ¨ ÀÛ‚Ìİ’è ‚Ö‚Ì”½‰f ======
+    // ====== UI â†’ å®Ÿéš›ã®è¨­å®š ã¸ã®åæ˜  ======
 
     public void OnChangeBgm(bool _)
     {
-        // BGM ‚ÍuƒIƒ“‘¤‚ÌƒgƒOƒ‹‚ª ON ‚©‚Ç‚¤‚©v‚¾‚¯Œ©‚ê‚ÎOK
         bool isBgmOn = toggleBgmOn != null ? toggleBgmOn.isOn : true;
 
-        // ‚±‚±‚Å BGM ‚Ìƒ~ƒ…[ƒg‚È‚Ç‚ğØ‚è‘Ö‚¦‚éiAudioManager ‚ğŒã‚Åì‚é‘z’èj
-        // —áF if (bgmSource != null) bgmSource.mute = !isBgmOn;
+        PlayerPrefs.SetInt(KEY_BGM_ON, isBgmOn ? 1 : 0);
+        PlayerPrefs.Save();
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.SetBgmOn(isBgmOn);
 
         Debug.Log("BGM ON = " + isBgmOn);
     }
@@ -51,7 +53,12 @@ public class SettingsSceneManager : MonoBehaviour
     {
         bool isSeOn = toggleSeOn != null ? toggleSeOn.isOn : true;
 
-        // Œø‰Ê‰¹‚ğ–Â‚ç‚·‚Æ‚«‚É isSeOn ‚ğŒ©‚ÄÄ¶‚·‚é‚©Œˆ‚ß‚é‚æ‚¤‚É‚·‚é
+        PlayerPrefs.SetInt(KEY_SE_ON, isSeOn ? 1 : 0);
+        PlayerPrefs.Save();
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.SetSeOn(isSeOn);
+
         Debug.Log("SE ON = " + isSeOn);
     }
 
@@ -65,19 +72,19 @@ public class SettingsSceneManager : MonoBehaviour
         Screen.fullScreen = isOn;
     }
 
-    // ====== ƒ{ƒ^ƒ“—pƒƒ\ƒbƒh ======
+    // ====== ãƒœã‚¿ãƒ³ç”¨ãƒ¡ã‚½ãƒƒãƒ‰ ======
 
-    // u‚Ù‚¼‚ñ‚µ‚Ä‚à‚Ç‚év
+    // ã€Œã»ãã‚“ã—ã¦ã‚‚ã©ã‚‹ã€
     public void OnClickSaveAndBack()
     {
         SaveSettings();
         SceneManager.LoadScene(titleSceneName);
     }
 
-    // uƒfƒtƒHƒ‹ƒg‚É‚à‚Ç‚·v
+    // ã€Œãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã«ã‚‚ã©ã™ã€
     public void OnClickResetDefault()
     {
-        // d—lã‚ÌƒfƒtƒHƒ‹ƒg‚Í BGM ON / SE ON / ƒtƒ‹ƒXƒNƒŠ[ƒ“ ON
+        // ä»•æ§˜ä¸Šã®ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã¯ BGM ON / SE ON / ãƒ•ãƒ«ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ ON
         bool isBgmOn = true;
         bool isSeOn = true;
         bool isFullScreen = true;
@@ -92,20 +99,20 @@ public class SettingsSceneManager : MonoBehaviour
 
         ApplyFullScreen(isFullScreen);
 
-        // PlayerPrefs ‚àƒfƒtƒHƒ‹ƒg’l‚Åã‘‚«
+        // PlayerPrefs ã‚‚ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã§ä¸Šæ›¸ã
         PlayerPrefs.SetInt(KEY_BGM_ON, isBgmOn ? 1 : 0);
         PlayerPrefs.SetInt(KEY_SE_ON, isSeOn ? 1 : 0);
         PlayerPrefs.SetInt(KEY_FULLSCREEN, isFullScreen ? 1 : 0);
         PlayerPrefs.Save();
 
-        Debug.Log("İ’è‚ğƒfƒtƒHƒ‹ƒg’l‚É–ß‚µ‚Ü‚µ‚½");
+        Debug.Log("è¨­å®šã‚’ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã«æˆ»ã—ã¾ã—ãŸ");
     }
 
-    // ====== PlayerPrefs ‚Ì“Ç‚İ‘‚« ======
+    // ====== PlayerPrefs ã®èª­ã¿æ›¸ã ======
 
     private void LoadSettingsToUI()
     {
-        // •Û‘¶’l‚ª‚È‚¯‚ê‚Î BGM/SE/FullScreen ‚·‚×‚Ä ON ‚ğƒfƒtƒHƒ‹ƒg‚É‚·‚é  :contentReference[oaicite:5]{index=5}
+        // ä¿å­˜å€¤ãŒãªã‘ã‚Œã° BGM/SE/FullScreen ã™ã¹ã¦ ON ã‚’ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã«ã™ã‚‹  :contentReference[oaicite:5]{index=5}
         bool isBgmOn = PlayerPrefs.GetInt(KEY_BGM_ON, 1) == 1;
         bool isSeOn = PlayerPrefs.GetInt(KEY_SE_ON, 1) == 1;
         bool isFullScreen = PlayerPrefs.GetInt(KEY_FULLSCREEN, 1) == 1;
@@ -132,6 +139,12 @@ public class SettingsSceneManager : MonoBehaviour
         PlayerPrefs.SetInt(KEY_FULLSCREEN, isFullScreen ? 1 : 0);
         PlayerPrefs.Save();
 
-        Debug.Log("İ’è‚ğ•Û‘¶‚µ‚Ü‚µ‚½");
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.SetBgmOn(isBgmOn);
+            AudioManager.Instance.SetSeOn(isSeOn);
+        }
+
+        Debug.Log("è¨­å®šã‚’ä¿å­˜ã—ã¾ã—ãŸ");
     }
 }
