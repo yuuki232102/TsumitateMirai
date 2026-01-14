@@ -69,8 +69,16 @@ public class SettingsSceneManager : MonoBehaviour
 
     private void ApplyFullScreen(bool isOn)
     {
-        Screen.fullScreen = isOn;
+        if (isOn)
+        {
+            Screen.SetResolution(1920, 1080, FullScreenMode.FullScreenWindow);
+        }
+        else
+        {
+            Screen.SetResolution(1280, 720, FullScreenMode.Windowed);
+        }
     }
+
 
     // ====== ボタン用メソッド ======
 
