@@ -27,7 +27,7 @@ public class SimulationSceneManager : MonoBehaviour
 
     [Header("年数設定")]
     [SerializeField] private int maxYear = 15;
-    [SerializeField] private int currentYear = 0;
+    [SerializeField] private int currentYear = 0;   // 0,1,2,...maxYear
 
     [Header("積立額設定")]
     [SerializeField] private int monthlyAmount = 1000;
@@ -37,7 +37,7 @@ public class SimulationSceneManager : MonoBehaviour
 
     [Header("資産状態（シミュレーション用）")]
     [SerializeField] private int assetAtStartOfYear = 0;        // その年の開始時点の資産
-    [SerializeField] private int currentAsset = 0;              // 表示用 現在の資産（プレビュー込み）
+    [SerializeField] private int currentAsset = 0;              // 画面に出している現在の資産（プレビュー込み）
     [SerializeField] private int totalPrincipal = 0;            // 積み立てた元本の合計
 
     [Header("リスク設定")]
@@ -70,10 +70,10 @@ public class SimulationSceneManager : MonoBehaviour
     //  内部データ
     //========================
 
-    // 各年の期末資産
+    // 各年の「年末時点の資産」
     private readonly List<int> yearEndAssets = new List<int>();
 
-    // 年ごとの「12ヶ月の資産推移」
+    // 各年ごとに、その年の「12ヶ月の資産推移」
     private readonly List<List<int>> monthlyAssetsPerYear = new List<List<int>>();
 
     // スライダー更新中フラグ（無限ループ防止）
@@ -88,7 +88,9 @@ public class SimulationSceneManager : MonoBehaviour
 
     private void Start()
     {
-        // --- 積立額・スライダー初期化 ---
+        //--------------------------------
+        // 積立額・スライダー初期化
+        //--------------------------------
         if (monthlyStep <= 0) monthlyStep = 1000;
 
         monthlyAmount = Mathf.Clamp(monthlyAmount, minMonthlyAmount, maxMonthlyAmount);
@@ -105,25 +107,33 @@ public class SimulationSceneManager : MonoBehaviour
             monthlyAmountSlider.value = monthlyAmount;
             isUpdatingMonthlySlider = false;
 
-            // インスペクターで既に設定していても二重に壊れる事はない
             monthlyAmountSlider.onValueChanged.AddListener(OnMonthlySliderChanged);
         }
 
-        // --- リスクトグル ---
+        //--------------------------------
+        // リスクトグル
+        //--------------------------------
         if (riskLowToggle != null)
             riskLowToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(0); });
+
         if (riskMiddleToggle != null)
             riskMiddleToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(1); });
+
         if (riskHighToggle != null)
             riskHighToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(2); });
 
-        // --- グラフトグル ---
+        //--------------------------------
+        // グラフトグル
+        //--------------------------------
         if (graphYearlyToggle != null)
             graphYearlyToggle.onValueChanged.AddListener(isOn => OnGraphToggleChanged(true, isOn));
+
         if (graphMonthlyToggle != null)
             graphMonthlyToggle.onValueChanged.AddListener(isOn => OnGraphToggleChanged(false, isOn));
 
-        // --- 詳細年スライダー ---
+        //--------------------------------
+        // 詳細年スライダー
+        //--------------------------------
         if (detailYearSlider != null)
         {
             detailYearSlider.minValue = 0;
@@ -133,7 +143,9 @@ public class SimulationSceneManager : MonoBehaviour
             detailYearSlider.onValueChanged.AddListener(OnDetailYearSliderChanged);
         }
 
-        // --- 初期状態の資産 ---
+        //--------------------------------
+        // シミュレーション内部状態の初期化
+        //--------------------------------
         currentYear = 0;
         assetAtStartOfYear = 0;
         currentAsset = 0;
@@ -142,17 +154,23 @@ public class SimulationSceneManager : MonoBehaviour
         yearEndAssets.Clear();
         monthlyAssetsPerYear.Clear();
 
-        // --- グラフ初期化（B案：0年目・0円の点を1つだけ置く） ---
+        //--------------------------------
+        // グラフ初期化（0年目・資産0円の点を 1 つ置く）
+        //--------------------------------
         InitializeGraphs();
 
-        // --- グラフモード初期値（年別オン） ---
+        //--------------------------------
+        // グラフモード初期値（年別オン）
+        //--------------------------------
         isUpdatingGraphToggles = true;
         if (graphYearlyToggle != null) graphYearlyToggle.isOn = true;
         if (graphMonthlyToggle != null) graphMonthlyToggle.isOn = false;
         isUpdatingGraphToggles = false;
         ApplyGraphMode(true);
 
-        // --- UI の初期表示 ---
+        //--------------------------------
+        // UI の初期表示
+        //--------------------------------
         RefreshAllUI();
     }
 
@@ -239,10 +257,8 @@ public class SimulationSceneManager : MonoBehaviour
         // テキスト更新
         UpdateMonthlyAmountText();
 
-        // ★「次の年へ」を押した結果の資産 assetAtStartOfYear に
-        //   今年の積立額1回分だけ足した値をプレビューとして表示
+        // プレビュー用：今年の開始資産 + 今月の積み立て 1 回分
         currentAsset = assetAtStartOfYear + monthlyAmount;
-
         UpdateCurrentAssetText();
     }
 
@@ -254,7 +270,7 @@ public class SimulationSceneManager : MonoBehaviour
     {
         if (currentYear >= maxYear) return;
 
-        // この年の 12ヶ月をシミュレート
+        // この年の 12 ヶ月をシミュレート
         List<int> monthlyAssets = new List<int>();
         float monthlyRate = GetMonthlyRate();
 
@@ -276,25 +292,29 @@ public class SimulationSceneManager : MonoBehaviour
         currentAsset = asset;
         currentYear++;
 
-        // データを保存
+        // データ保存
         yearEndAssets.Add(asset);
         monthlyAssetsPerYear.Add(monthlyAssets);
 
-        // ★グラフ更新（年別）
-        //  Reset せず、0年目(0,0) → 1年目 → 2年目… と追加していく
+        // 年別グラフに 1 点追加
+        // 0年目 (0, 初期資産) は InitializeGraphs() ですでに追加済みなので、
+        // ここでは currentYear (=1,2,3...) をそのまま使う。
         if (graphUI != null)
         {
             graphUI.AddPoint(currentYear, currentAsset);
         }
 
-        // グラフ更新（月別）…直近の年を表示
+        // 月別グラフ…直近の年を表示
         if (monthlyGraphUI != null)
         {
             int idx = Mathf.Clamp(currentYear - 1, 0, monthlyAssetsPerYear.Count - 1);
-            monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[idx]);
+
+            // ★ 0→1年目のグラフだけ開始点オフセットを有効にする
+            bool useOffset = (idx == 0);
+            monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[idx], useOffset);
         }
 
-        // 詳細年スライダー範囲を更新
+        // 詳細年スライダー範囲更新
         if (detailYearSlider != null)
         {
             detailYearSlider.maxValue = Mathf.Max(0, yearEndAssets.Count - 1);
@@ -304,12 +324,12 @@ public class SimulationSceneManager : MonoBehaviour
         UpdateDetailYearLabel();
         RefreshAllUI();
 
-        // ログも追加（任意）
+        // ログ出力（任意）
         AppendLog($"{currentYear}年目終了 : 資産 {currentAsset.ToString("N0")}円");
     }
 
     //========================
-    //  年別グラフ＆月別グラフの初期化（B案）
+    //  年別グラフ＆月別グラフの初期化
     //========================
 
     private void InitializeGraphs()
@@ -317,18 +337,19 @@ public class SimulationSceneManager : MonoBehaviour
         // 年別グラフ
         if (graphUI != null)
         {
-            // いったんリセット
+            // 一旦リセット
             graphUI.ResetGraph();
 
-            // ★ 0年目の開始点（資産0円）を 1 点だけ登録する
-            graphUI.AddPoint(0, 0);
+            // 0年目の開始点（初期資産）を 1 点だけ登録
+            // 今は初期資産 = 0 だが、将来「最初から◯円持っている」に拡張しても対応できるように
+            graphUI.AddPoint(0, assetAtStartOfYear);
         }
 
         // 月別グラフ（表示だけクリア）
         if (monthlyGraphUI != null)
         {
-            // null または空リストを渡して「何も描かない」状態にしておく
-            monthlyGraphUI.SetMonthlyData(null);
+            // 初期状態ではデータなし＆オフセットなし
+            monthlyGraphUI.SetMonthlyData(null, false);
         }
     }
 
@@ -360,7 +381,9 @@ public class SimulationSceneManager : MonoBehaviour
 
         if (monthlyGraphUI != null)
         {
-            monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[index]);
+            // ★ インデックス0（1年目）のときだけ開始点オフセットを有効にする
+            bool useOffset = (index == 0);
+            monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[index], useOffset);
         }
     }
 
@@ -378,7 +401,7 @@ public class SimulationSceneManager : MonoBehaviour
 
     private void OnGraphToggleChanged(bool yearlyToggle, bool isOn)
     {
-        if (!isOn) // OFF にされた時の扱い
+        if (!isOn)
         {
             // どちらも OFF になるのを防ぐ
             if (!graphYearlyToggle.isOn && !graphMonthlyToggle.isOn)

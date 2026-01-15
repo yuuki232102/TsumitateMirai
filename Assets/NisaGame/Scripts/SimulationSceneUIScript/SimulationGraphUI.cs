@@ -30,6 +30,15 @@ public class SimulationGraphUI : MonoBehaviour
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
 
+    // ★ 0年目の開始点だけにかけるY方向オフセット（ピクセル）
+    [Header("開始点オフセット")]
+    [SerializeField] private float startPointYOffset = 0f;
+
+    // ★ 追加：ラインの色（上昇 / 減少）
+    [Header("ライン色設定")]
+    [SerializeField] private Color lineUpColor = new Color(0.4f, 0.8f, 0.2f, 1f); // 黄緑っぽい
+    [SerializeField] private Color lineDownColor = new Color(0.9f, 0.2f, 0.2f, 1f); // 赤っぽい
+
     [Header("Y軸ラベルの親（3つ推奨）")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
 
@@ -39,6 +48,9 @@ public class SimulationGraphUI : MonoBehaviour
     [Header("カーソル表示UI（任意）")]
     [SerializeField] private TMP_Text hoverInfoText;        // 例: 「7年目 : 671,709円」
     [SerializeField] private RectTransform hoverMarker;     // グラフ上の小さなマーカー
+
+    [Header("ホバー感度設定")]
+    [SerializeField] private float hoverSnapMaxDistance = 40f; // この距離以内ならホバー有効
 
     //========================================================
     //  内部状態
@@ -229,6 +241,12 @@ public class SimulationGraphUI : MonoBehaviour
             float tY = Mathf.InverseLerp(minAsset, maxAsset, assets[i]);
             float y = tY * height;
 
+            // 0年目の開始点だけ Y オフセットを加える
+            if (years[i] == 0)
+            {
+                y += startPointYOffset;
+            }
+
             Vector2 pos = new Vector2(x, y);
             pointPositions.Add(pos);
 
@@ -241,7 +259,7 @@ public class SimulationGraphUI : MonoBehaviour
                 p.sizeDelta = new Vector2(pointSize, pointSize);
             }
 
-            // ---- 線 ----
+            // ---- 線（上昇/減少で色分け）----
             if (hasPrev && linePrefab != null)
             {
                 RectTransform line = Instantiate(linePrefab, graphRect);
@@ -255,6 +273,18 @@ public class SimulationGraphUI : MonoBehaviour
 
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
                 line.localRotation = Quaternion.Euler(0f, 0f, angle);
+
+                // ★ここで資産の増減を見て色を変える
+                int prevIndex = i - 1;
+                if (prevIndex >= 0 && prevIndex < assets.Count)
+                {
+                    bool isUp = assets[i] >= assets[prevIndex];
+                    var img = line.GetComponent<Image>();
+                    if (img != null)
+                    {
+                        img.color = isUp ? lineUpColor : lineDownColor;
+                    }
+                }
             }
 
             previousPos = pos;
@@ -377,14 +407,34 @@ public class SimulationGraphUI : MonoBehaviour
             return;
         }
 
-        // X位置から最も近いデータ点を求める
-        float tX = Mathf.Clamp01(fromBL.x / width);
-        int index = Mathf.Clamp(
-            Mathf.RoundToInt(tX * (pointPositions.Count - 1)),
-            0, pointPositions.Count - 1);
+        //----------------------------------------------------
+        // 一番近い点を距離で探す
+        //----------------------------------------------------
+        int closestIndex = -1;
+        float closestSqrDist = float.MaxValue;
 
-        int year = years[index];
-        int asset = assets[index];
+        for (int i = 0; i < pointPositions.Count; i++)
+        {
+            Vector2 diff = pointPositions[i] - fromBL; // 同じローカル座標系
+            float sqrDist = diff.sqrMagnitude;
+
+            if (sqrDist < closestSqrDist)
+            {
+                closestSqrDist = sqrDist;
+                closestIndex = i;
+            }
+        }
+
+        // 線／点から遠すぎる場合はホバーしない
+        if (closestIndex < 0 || closestSqrDist > hoverSnapMaxDistance * hoverSnapMaxDistance)
+        {
+            if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
+            if (hoverInfoText != null) hoverInfoText.text = "";
+            return;
+        }
+
+        int year = years[closestIndex];
+        int asset = assets[closestIndex];
 
         if (hoverInfoText != null)
         {
@@ -395,7 +445,7 @@ public class SimulationGraphUI : MonoBehaviour
         {
             hoverMarker.gameObject.SetActive(true);
             hoverMarker.anchorMin = hoverMarker.anchorMax = new Vector2(0f, 0f);
-            hoverMarker.anchoredPosition = pointPositions[index];
+            hoverMarker.anchoredPosition = pointPositions[closestIndex];
         }
     }
 }
