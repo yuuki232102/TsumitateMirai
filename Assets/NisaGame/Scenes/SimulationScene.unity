@@ -2404,7 +2404,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 288}
+  m_AnchoredPosition: {x: 80, y: 288}
   m_SizeDelta: {x: 500, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &542813809
@@ -4081,6 +4081,9 @@ MonoBehaviour:
   axisMargin: 5000
   pointSize: 12
   lineThickness: 3
+  startPointYOffset: 0
+  lineUpColor: {r: 0.4, g: 0.8, b: 0.2, a: 1}
+  lineDownColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
   yAxisLabelsRoot: {fileID: 1315112854}
   xAxisLabelsRoot: {fileID: 300730236}
   hoverInfoText: {fileID: 92938942}
@@ -4106,8 +4109,11 @@ MonoBehaviour:
   defaultAbsMaxSegment2: 5500000
   defaultAbsMaxSegment3: 7000000
   axisMargin: 5000
-  pointSize: 40
-  lineThickness: 20
+  pointSize: 10
+  lineThickness: 5
+  startPointYOffset: 0
+  lineUpColor: {r: 0.4, g: 0.8, b: 0.2, a: 1}
+  lineDownColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
   yAxisLabelsRoot: {fileID: 1315112854}
   xAxisLabelsRoot: {fileID: 300730236}
   hoverInfoText: {fileID: 92938942}
@@ -8640,8 +8646,11 @@ MonoBehaviour:
   defaultAbsMaxSegment2: 5500000
   defaultAbsMaxSegment3: 7000000
   axisMargin: 5000
-  pointSize: 40
-  lineThickness: 20
+  pointSize: 10
+  lineThickness: 5
+  startPointYOffset: -80
+  lineUpColor: {r: 0.4, g: 0.8, b: 0.2, a: 1}
+  lineDownColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
   yAxisLabelsRoot: {fileID: 1960451259}
   xAxisLabelsRoot: {fileID: 1796273183}
   hoverInfoText: {fileID: 542813809}

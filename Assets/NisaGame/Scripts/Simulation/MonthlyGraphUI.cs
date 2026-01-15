@@ -26,6 +26,15 @@ public class MonthlyGraphUI : MonoBehaviour
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
 
+    // ★追加：1ヶ月目の開始点だけにかけるY方向オフセット（ピクセル）
+    [Header("開始点オフセット")]
+    [SerializeField] private float startPointYOffset = 0f;
+
+    // ★追加：ラインの色（上昇 / 減少）
+    [Header("ライン色設定")]
+    [SerializeField] private Color lineUpColor = new Color(0.4f, 0.8f, 0.2f, 1f); // 黄緑っぽい
+    [SerializeField] private Color lineDownColor = new Color(0.9f, 0.2f, 0.2f, 1f); // 赤っぽい
+
     [Header("Y軸ラベルの親（3つ推奨）")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
 
@@ -54,6 +63,9 @@ public class MonthlyGraphUI : MonoBehaviour
 
     // 各点のローカル座標（graphRect 左下原点）
     private readonly List<Vector2> pointPositions = new List<Vector2>();
+
+    // このグラフ描画で開始点オフセットを使うかどうか
+    private bool useStartOffsetThisYear = false;
 
     //========================================================
     //  Unity ライフサイクル
@@ -88,10 +100,22 @@ public class MonthlyGraphUI : MonoBehaviour
     //  外部インターフェース
     //========================================================
 
-    /// <summary>指定された年の月次資産推移をセット＆描画</summary>
+    /// <summary>
+    /// 指定された年の月次資産推移をセット＆描画（開始点オフセットなし）
+    /// </summary>
     public void SetMonthlyData(List<int> assetsForYear)
     {
+        SetMonthlyData(assetsForYear, false);
+    }
+
+    /// <summary>
+    /// 指定された年の月次資産推移をセット＆描画
+    /// useStartOffset == true のとき、その年の 1ヶ月目だけ開始点オフセットを適用。
+    /// </summary>
+    public void SetMonthlyData(List<int> assetsForYear, bool useStartOffset)
+    {
         monthlyAssets.Clear();
+        useStartOffsetThisYear = useStartOffset;
 
         if (assetsForYear != null && assetsForYear.Count > 0)
         {
@@ -193,6 +217,12 @@ public class MonthlyGraphUI : MonoBehaviour
             float tY = Mathf.InverseLerp(minAsset, maxAsset, monthlyAssets[i]);
             float y = tY * height;
 
+            // 1ヶ月目 かつ useStartOffsetThisYear のときだけ Y オフセットを加える
+            if (i == 0 && useStartOffsetThisYear)
+            {
+                y += startPointYOffset;
+            }
+
             Vector2 pos = new Vector2(x, y);
             pointPositions.Add(pos);
 
@@ -205,7 +235,7 @@ public class MonthlyGraphUI : MonoBehaviour
                 p.sizeDelta = new Vector2(pointSize, pointSize);
             }
 
-            // ---- 線 ----
+            // ---- 線（上昇 / 減少で色分け）----
             if (hasPrev && linePrefab != null)
             {
                 RectTransform line = Instantiate(linePrefab, graphRect);
@@ -219,6 +249,18 @@ public class MonthlyGraphUI : MonoBehaviour
 
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
                 line.localRotation = Quaternion.Euler(0f, 0f, angle);
+
+                // ここで資産の増減を見て色を変える
+                int prevIndex = i - 1;
+                if (prevIndex >= 0 && prevIndex < monthlyAssets.Count)
+                {
+                    bool isUp = monthlyAssets[i] >= monthlyAssets[prevIndex];
+                    var img = line.GetComponent<Image>();
+                    if (img != null)
+                    {
+                        img.color = isUp ? lineUpColor : lineDownColor;
+                    }
+                }
             }
 
             previousPos = pos;

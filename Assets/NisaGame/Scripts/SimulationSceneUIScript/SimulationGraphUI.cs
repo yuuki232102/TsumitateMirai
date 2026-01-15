@@ -30,6 +30,15 @@ public class SimulationGraphUI : MonoBehaviour
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
 
+    // ★ 0年目の開始点だけにかけるY方向オフセット（ピクセル）
+    [Header("開始点オフセット")]
+    [SerializeField] private float startPointYOffset = 0f;
+
+    // ★ 追加：ラインの色（上昇 / 減少）
+    [Header("ライン色設定")]
+    [SerializeField] private Color lineUpColor = new Color(0.4f, 0.8f, 0.2f, 1f); // 黄緑っぽい
+    [SerializeField] private Color lineDownColor = new Color(0.9f, 0.2f, 0.2f, 1f); // 赤っぽい
+
     [Header("Y軸ラベルの親（3つ推奨）")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
 
@@ -232,6 +241,12 @@ public class SimulationGraphUI : MonoBehaviour
             float tY = Mathf.InverseLerp(minAsset, maxAsset, assets[i]);
             float y = tY * height;
 
+            // 0年目の開始点だけ Y オフセットを加える
+            if (years[i] == 0)
+            {
+                y += startPointYOffset;
+            }
+
             Vector2 pos = new Vector2(x, y);
             pointPositions.Add(pos);
 
@@ -244,7 +259,7 @@ public class SimulationGraphUI : MonoBehaviour
                 p.sizeDelta = new Vector2(pointSize, pointSize);
             }
 
-            // ---- 線 ----
+            // ---- 線（上昇/減少で色分け）----
             if (hasPrev && linePrefab != null)
             {
                 RectTransform line = Instantiate(linePrefab, graphRect);
@@ -258,6 +273,18 @@ public class SimulationGraphUI : MonoBehaviour
 
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
                 line.localRotation = Quaternion.Euler(0f, 0f, angle);
+
+                // ★ここで資産の増減を見て色を変える
+                int prevIndex = i - 1;
+                if (prevIndex >= 0 && prevIndex < assets.Count)
+                {
+                    bool isUp = assets[i] >= assets[prevIndex];
+                    var img = line.GetComponent<Image>();
+                    if (img != null)
+                    {
+                        img.color = isUp ? lineUpColor : lineDownColor;
+                    }
+                }
             }
 
             previousPos = pos;
