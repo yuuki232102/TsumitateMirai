@@ -30,10 +30,10 @@ public class MonthlyGraphUI : MonoBehaviour
     [Header("開始点オフセット")]
     [SerializeField] private float startPointYOffset = 0f;
 
-    // ★追加：ラインの色（上昇 / 減少）
-    [Header("ライン色設定")]
-    [SerializeField] private Color lineUpColor = new Color(0.4f, 0.8f, 0.2f, 1f); // 黄緑っぽい
-    [SerializeField] private Color lineDownColor = new Color(0.9f, 0.2f, 0.2f, 1f); // 赤っぽい
+    [Header("ラインカラー設定")]
+    [SerializeField] private Color riseLineColor = new Color(0.6f, 1f, 0.3f, 1f); // 上昇：黄緑
+    [SerializeField] private Color fallLineColor = new Color(1f, 0.4f, 0.4f, 1f); // 下落：赤
+    [SerializeField] private Color flatLineColor = Color.black;                   // 変化なし
 
     [Header("Y軸ラベルの親（3つ推奨）")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
@@ -61,10 +61,13 @@ public class MonthlyGraphUI : MonoBehaviour
     // その年の 12ヶ月分の資産推移
     private readonly List<int> monthlyAssets = new List<int>();
 
+    // その年の 12ヶ月分の景気イベント（SimulationSceneManager から受け取り）
+    private readonly List<EconomicEventType> monthlyEvents = new List<EconomicEventType>();
+
     // 各点のローカル座標（graphRect 左下原点）
     private readonly List<Vector2> pointPositions = new List<Vector2>();
 
-    // このグラフ描画で開始点オフセットを使うかどうか
+    // ★このグラフ描画で開始点オフセットを使うかどうか
     private bool useStartOffsetThisYear = false;
 
     //========================================================
@@ -101,25 +104,55 @@ public class MonthlyGraphUI : MonoBehaviour
     //========================================================
 
     /// <summary>
-    /// 指定された年の月次資産推移をセット＆描画（開始点オフセットなし）
+    /// 指定された年の月次資産推移をセット＆描画（開始点オフセット / イベントなし）
     /// </summary>
     public void SetMonthlyData(List<int> assetsForYear)
     {
-        SetMonthlyData(assetsForYear, false);
+        SetMonthlyData(assetsForYear, false, null);
+    }
+
+    /// <summary>
+    /// 指定された年の月次資産推移をセット＆描画（イベントなし）
+    /// </summary>
+    public void SetMonthlyData(List<int> assetsForYear, bool useStartOffset)
+    {
+        SetMonthlyData(assetsForYear, useStartOffset, null);
     }
 
     /// <summary>
     /// 指定された年の月次資産推移をセット＆描画
     /// useStartOffset == true のとき、その年の 1ヶ月目だけ開始点オフセットを適用。
+    /// eventsForYear で、その年の各月の景気イベントを渡す（null なら全部 None）。
     /// </summary>
-    public void SetMonthlyData(List<int> assetsForYear, bool useStartOffset)
+    public void SetMonthlyData(List<int> assetsForYear, bool useStartOffset, List<EconomicEventType> eventsForYear)
     {
         monthlyAssets.Clear();
+        monthlyEvents.Clear();
         useStartOffsetThisYear = useStartOffset;
 
         if (assetsForYear != null && assetsForYear.Count > 0)
         {
             monthlyAssets.AddRange(assetsForYear);
+        }
+
+        if (eventsForYear != null && eventsForYear.Count > 0)
+        {
+            int count = Mathf.Min(eventsForYear.Count, monthlyAssets.Count);
+            for (int i = 0; i < count; i++)
+            {
+                monthlyEvents.Add(eventsForYear[i]);
+            }
+            for (int i = monthlyEvents.Count; i < monthlyAssets.Count; i++)
+            {
+                monthlyEvents.Add(EconomicEventType.None);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < monthlyAssets.Count; i++)
+            {
+                monthlyEvents.Add(EconomicEventType.None);
+            }
         }
 
         RebuildGraph();
@@ -158,12 +191,11 @@ public class MonthlyGraphUI : MonoBehaviour
         //----------------------------------------------------
         if (monthlyAssets.Count == 0)
         {
-            // データが無いときはデフォルトレンジで軸だけ表示
             minAsset = -defaultAbsMax;
             maxAsset = defaultAbsMax;
 
             UpdateYAxisLabels(minAsset, maxAsset);
-            UpdateXAxisLabels(12); // 12ヶ月分の目盛り
+            UpdateXAxisLabels(12);
 
             if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
             if (hoverInfoText != null) hoverInfoText.text = "";
@@ -179,16 +211,11 @@ public class MonthlyGraphUI : MonoBehaviour
             if (monthlyAssets[i] > rawMax) rawMax = monthlyAssets[i];
         }
 
-        // 絶対値で一番大きい値を基準に
         float absMaxData = Mathf.Max(Mathf.Abs(rawMin), Mathf.Abs(rawMax));
-
-        // 余白を追加
         absMaxData += axisMargin;
 
-        // デフォルト上限と比較して大きい方を採用
         float finalAbsMax = Mathf.Max(absMaxData, defaultAbsMax);
 
-        // 最終的なレンジ（上: +finalAbsMax / 下: -finalAbsMax）
         minAsset = -finalAbsMax;
         maxAsset = finalAbsMax;
 
@@ -205,19 +232,16 @@ public class MonthlyGraphUI : MonoBehaviour
         bool hasPrev = false;
 
         int count = monthlyAssets.Count;
-        if (count <= 1) count = 2;   // 1点だけでも左端/右端を計算できるように
+        if (count <= 1) count = 2;
 
         for (int i = 0; i < monthlyAssets.Count; i++)
         {
-            // X：左0〜右1 に正規化
             float tX = (float)i / (count - 1);
             float x = tX * width;
 
-            // Y：下 minAsset〜上 maxAsset を 0〜1 に正規化
             float tY = Mathf.InverseLerp(minAsset, maxAsset, monthlyAssets[i]);
             float y = tY * height;
 
-            // 1ヶ月目 かつ useStartOffsetThisYear のときだけ Y オフセットを加える
             if (i == 0 && useStartOffsetThisYear)
             {
                 y += startPointYOffset;
@@ -235,7 +259,7 @@ public class MonthlyGraphUI : MonoBehaviour
                 p.sizeDelta = new Vector2(pointSize, pointSize);
             }
 
-            // ---- 線（上昇 / 減少で色分け）----
+            // ---- 線 ----
             if (hasPrev && linePrefab != null)
             {
                 RectTransform line = Instantiate(linePrefab, graphRect);
@@ -250,16 +274,14 @@ public class MonthlyGraphUI : MonoBehaviour
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
                 line.localRotation = Quaternion.Euler(0f, 0f, angle);
 
-                // ここで資産の増減を見て色を変える
-                int prevIndex = i - 1;
-                if (prevIndex >= 0 && prevIndex < monthlyAssets.Count)
+                // ★ 上昇/下落に応じて線の色を変える
+                float delta = monthlyAssets[i] - monthlyAssets[i - 1];
+                var graphic = line.GetComponent<Graphic>();
+                if (graphic != null)
                 {
-                    bool isUp = monthlyAssets[i] >= monthlyAssets[prevIndex];
-                    var img = line.GetComponent<Image>();
-                    if (img != null)
-                    {
-                        img.color = isUp ? lineUpColor : lineDownColor;
-                    }
+                    if (delta > 0f) graphic.color = riseLineColor;
+                    else if (delta < 0f) graphic.color = fallLineColor;
+                    else graphic.color = flatLineColor;
                 }
             }
 
@@ -300,13 +322,12 @@ public class MonthlyGraphUI : MonoBehaviour
             string text;
             if (n >= 3)
             {
-                if (i == 0) text = topText;          // 一番上
-                else if (i == 1) text = middleText;  // 真ん中
-                else text = bottomText;              // 一番下
+                if (i == 0) text = topText;
+                else if (i == 1) text = middleText;
+                else text = bottomText;
             }
             else
             {
-                // 3つ以外のときは保険として線形配置
                 float t = (n == 1) ? 0f : (float)i / (n - 1);
                 float v = Mathf.Lerp(-absMax, absMax, t);
                 int vi = Mathf.RoundToInt(v);
@@ -410,9 +431,19 @@ public class MonthlyGraphUI : MonoBehaviour
         int month = monthIndex + 1;             // 表示用は 1月〜
         int asset = monthlyAssets[monthIndex];
 
+        // 景気イベント名
+        EconomicEventType ev = EconomicEventType.None;
+        if (monthIndex >= 0 && monthIndex < monthlyEvents.Count)
+        {
+            ev = monthlyEvents[monthIndex];
+        }
+        string evLabel = GetEventLabel(ev);
+
         if (hoverInfoText != null)
         {
-            hoverInfoText.text = $"{month}月 : {asset.ToString("N0")}円";
+            hoverInfoText.text =
+                $"{month}月 : {asset.ToString("N0")}円\n" +
+                $"景気: {evLabel}";
         }
 
         if (hoverMarker != null)
@@ -420,6 +451,22 @@ public class MonthlyGraphUI : MonoBehaviour
             hoverMarker.gameObject.SetActive(true);
             hoverMarker.anchorMin = hoverMarker.anchorMax = new Vector2(0f, 0f);
             hoverMarker.anchoredPosition = pointPositions[closestIndex];
+        }
+    }
+
+    /// <summary>景気イベントの表示用ラベル</summary>
+    private string GetEventLabel(EconomicEventType ev)
+    {
+        switch (ev)
+        {
+            case EconomicEventType.Boom:
+                return "好景気";
+            case EconomicEventType.Recession:
+                return "不景気";
+            case EconomicEventType.Shock:
+                return "ショック";
+            default:
+                return "平常";
         }
     }
 }

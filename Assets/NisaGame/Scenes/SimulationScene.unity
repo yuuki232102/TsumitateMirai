@@ -3969,8 +3969,9 @@ MonoBehaviour:
   pointSize: 12
   lineThickness: 3
   startPointYOffset: 0
-  lineUpColor: {r: 0.4, g: 0.8, b: 0.2, a: 1}
-  lineDownColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
+  riseLineColor: {r: 0.6, g: 1, b: 0.3, a: 1}
+  fallLineColor: {r: 1, g: 0.4, b: 0.4, a: 1}
+  flatLineColor: {r: 0, g: 0, b: 0, a: 1}
   yAxisLabelsRoot: {fileID: 1315112854}
   xAxisLabelsRoot: {fileID: 300730236}
   hoverInfoText: {fileID: 92938942}
@@ -3999,8 +4000,9 @@ MonoBehaviour:
   pointSize: 10
   lineThickness: 5
   startPointYOffset: 0
-  lineUpColor: {r: 0.4, g: 0.8, b: 0.2, a: 1}
-  lineDownColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
+  riseLineColor: {r: 0.6, g: 1, b: 0.3, a: 1}
+  fallLineColor: {r: 1, g: 0.4, b: 0.4, a: 1}
+  flatLineColor: {r: 0, g: 0, b: 0, a: 1}
   yAxisLabelsRoot: {fileID: 1315112854}
   xAxisLabelsRoot: {fileID: 300730236}
   hoverInfoText: {fileID: 92938942}
@@ -8402,8 +8404,9 @@ MonoBehaviour:
   pointSize: 10
   lineThickness: 5
   startPointYOffset: -80
-  lineUpColor: {r: 0.4, g: 0.8, b: 0.2, a: 1}
-  lineDownColor: {r: 0.9, g: 0.2, b: 0.2, a: 1}
+  riseLineColor: {r: 0.6, g: 1, b: 0.3, a: 1}
+  fallLineColor: {r: 1, g: 0.4, b: 0.4, a: 1}
+  flatLineColor: {r: 0, g: 0, b: 0, a: 1}
   yAxisLabelsRoot: {fileID: 1960451259}
   xAxisLabelsRoot: {fileID: 1796273183}
   hoverInfoText: {fileID: 542813809}

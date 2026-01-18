@@ -20,7 +20,6 @@ public class SimulationGraphUI : MonoBehaviour
     [SerializeField] private int maxYear = 15;
 
     [Header("縦軸設定（0中心・±上限 値）")]
-    // 年数区間ごとの「絶対値デフォルト上限」
     [SerializeField] private float defaultAbsMaxSegment1 = 800000f; // 0〜5年
     [SerializeField] private float defaultAbsMaxSegment2 = 800000f; // 6〜10年
     [SerializeField] private float defaultAbsMaxSegment3 = 800000f; // 11〜15年
@@ -30,14 +29,13 @@ public class SimulationGraphUI : MonoBehaviour
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
 
-    // ★ 0年目の開始点だけにかけるY方向オフセット（ピクセル）
     [Header("開始点オフセット")]
     [SerializeField] private float startPointYOffset = 0f;
 
-    // ★ 追加：ラインの色（上昇 / 減少）
-    [Header("ライン色設定")]
-    [SerializeField] private Color lineUpColor = new Color(0.4f, 0.8f, 0.2f, 1f); // 黄緑っぽい
-    [SerializeField] private Color lineDownColor = new Color(0.9f, 0.2f, 0.2f, 1f); // 赤っぽい
+    [Header("ラインカラー設定")]
+    [SerializeField] private Color riseLineColor = new Color(0.6f, 1f, 0.3f, 1f); // 黄緑
+    [SerializeField] private Color fallLineColor = new Color(1f, 0.4f, 0.4f, 1f); // 赤
+    [SerializeField] private Color flatLineColor = Color.black;                    // 変化なし
 
     [Header("Y軸ラベルの親（3つ推奨）")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
@@ -56,18 +54,15 @@ public class SimulationGraphUI : MonoBehaviour
     //  内部状態
     //========================================================
 
-    // ラベル用（TMP / 旧 Text 両対応）
     private TMP_Text[] yAxisLabelsTMP;
     private Text[] yAxisLabelsUGUI;
 
     private TMP_Text[] xAxisLabelsTMP;
     private Text[] xAxisLabelsUGUI;
 
-    // グラフデータ
     private readonly List<int> years = new List<int>();   // X：年
     private readonly List<int> assets = new List<int>();  // Y：資産
 
-    // ホバー用：各点のローカル座標（GraphRect 左下原点）
     private readonly List<Vector2> pointPositions = new List<Vector2>();
 
     //========================================================
@@ -107,7 +102,6 @@ public class SimulationGraphUI : MonoBehaviour
     //  外部インターフェース
     //========================================================
 
-    /// <summary>グラフをリセット（全消去）</summary>
     public void ResetGraph()
     {
         years.Clear();
@@ -116,17 +110,14 @@ public class SimulationGraphUI : MonoBehaviour
 
         ClearGraphVisuals();
 
-        // 0年目のデフォルト範囲（±defaultAbsMaxSegment1）で軸だけ初期化
         float absMax = defaultAbsMaxSegment1;
         UpdateYAxisLabels(-absMax, absMax);
         UpdateXAxisLabels();
 
-        // ホバー表示リセット
         if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
         if (hoverInfoText != null) hoverInfoText.text = "";
     }
 
-    /// <summary>年と資産を追加し、グラフを描き直す</summary>
     public void AddPoint(int yearIndex, int asset)
     {
         years.Add(yearIndex);
@@ -138,7 +129,6 @@ public class SimulationGraphUI : MonoBehaviour
     //  描画処理
     //========================================================
 
-    /// <summary>グラフの子要素（点・線など）を全削除（ホバーマーカーは残す）</summary>
     private void ClearGraphVisuals()
     {
         if (graphRect == null) return;
@@ -151,7 +141,6 @@ public class SimulationGraphUI : MonoBehaviour
         }
     }
 
-    /// <summary>現在の「最後の年」に応じたデフォルト上限（絶対値）を返す</summary>
     private float GetDefaultAbsMaxForCurrentYears()
     {
         int lastYear = 0;
@@ -165,7 +154,6 @@ public class SimulationGraphUI : MonoBehaviour
         return defaultAbsMaxSegment3;
     }
 
-    /// <summary>内部データからグラフを再構築</summary>
     private void RebuildGraph()
     {
         if (graphRect == null) return;
@@ -178,7 +166,6 @@ public class SimulationGraphUI : MonoBehaviour
 
         if (years.Count == 0)
         {
-            // データ無し → デフォルト（0〜5年用）
             float absMax = defaultAbsMaxSegment1;
             minAsset = -absMax;
             maxAsset = absMax;
@@ -188,9 +175,6 @@ public class SimulationGraphUI : MonoBehaviour
             return;
         }
 
-        //----------------------------------------------------
-        // 1. 実データの最小・最大を取得
-        //----------------------------------------------------
         float rawMin = assets[0];
         float rawMax = assets[0];
 
@@ -200,31 +184,18 @@ public class SimulationGraphUI : MonoBehaviour
             if (assets[i] > rawMax) rawMax = assets[i];
         }
 
-        // 絶対値で一番大きい値（プラス・マイナス両方を考慮）
         float absMaxData = Mathf.Max(Mathf.Abs(rawMin), Mathf.Abs(rawMax));
-
-        // 余白を追加
         absMaxData += axisMargin;
 
-        //----------------------------------------------------
-        // 2. 区間ごとのデフォルト上限と比較して、最終的な ±上限値を決定
-        //----------------------------------------------------
         float absMaxDefault = GetDefaultAbsMaxForCurrentYears();
         float finalAbsMax = Mathf.Max(absMaxData, absMaxDefault);
 
-        // 上は +finalAbsMax、下は −finalAbsMax（常に対称）
         minAsset = -finalAbsMax;
         maxAsset = finalAbsMax;
 
-        //----------------------------------------------------
-        // 3. 軸ラベル更新
-        //----------------------------------------------------
         UpdateYAxisLabels(minAsset, maxAsset);
         UpdateXAxisLabels();
 
-        //----------------------------------------------------
-        // 4. 点と線を描画
-        //----------------------------------------------------
         float width = graphRect.rect.width;
         float height = graphRect.rect.height;
 
@@ -233,15 +204,12 @@ public class SimulationGraphUI : MonoBehaviour
 
         for (int i = 0; i < years.Count; i++)
         {
-            // X：0〜maxYear をグラフ幅に正規化
             float tX = (maxYear > 0) ? (float)years[i] / maxYear : 0f;
             float x = tX * width;
 
-            // Y：資産を 0〜1 に正規化（下が minAsset, 上が maxAsset）
             float tY = Mathf.InverseLerp(minAsset, maxAsset, assets[i]);
             float y = tY * height;
 
-            // 0年目の開始点だけ Y オフセットを加える
             if (years[i] == 0)
             {
                 y += startPointYOffset;
@@ -254,12 +222,12 @@ public class SimulationGraphUI : MonoBehaviour
             if (pointPrefab != null)
             {
                 RectTransform p = Instantiate(pointPrefab, graphRect);
-                p.anchorMin = p.anchorMax = new Vector2(0f, 0f); // 左下原点
+                p.anchorMin = p.anchorMax = new Vector2(0f, 0f);
                 p.anchoredPosition = pos;
                 p.sizeDelta = new Vector2(pointSize, pointSize);
             }
 
-            // ---- 線（上昇/減少で色分け）----
+            // ---- 線 ----
             if (hasPrev && linePrefab != null)
             {
                 RectTransform line = Instantiate(linePrefab, graphRect);
@@ -274,16 +242,14 @@ public class SimulationGraphUI : MonoBehaviour
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
                 line.localRotation = Quaternion.Euler(0f, 0f, angle);
 
-                // ★ここで資産の増減を見て色を変える
-                int prevIndex = i - 1;
-                if (prevIndex >= 0 && prevIndex < assets.Count)
+                // ★ここで上昇/下落に応じて色を変える
+                float delta = assets[i] - assets[i - 1];
+                var graphic = line.GetComponent<Graphic>();
+                if (graphic != null)
                 {
-                    bool isUp = assets[i] >= assets[prevIndex];
-                    var img = line.GetComponent<Image>();
-                    if (img != null)
-                    {
-                        img.color = isUp ? lineUpColor : lineDownColor;
-                    }
+                    if (delta > 0f) graphic.color = riseLineColor;
+                    else if (delta < 0f) graphic.color = fallLineColor;
+                    else graphic.color = flatLineColor;
                 }
             }
 
@@ -293,10 +259,9 @@ public class SimulationGraphUI : MonoBehaviour
     }
 
     //========================================================
-    //  軸ラベル更新
+    //  軸ラベル更新（略：ここはあなたの元コードと同じ）
     //========================================================
 
-    /// <summary>Y軸ラベルを更新（下：-上限 / 中央：0 / 上：+上限）</summary>
     private void UpdateYAxisLabels(float minAsset, float maxAsset)
     {
         if (yAxisLabelsRoot == null) return;
@@ -312,16 +277,13 @@ public class SimulationGraphUI : MonoBehaviour
         int n = Mathf.Max(nTMP, nGUI);
         if (n == 0) return;
 
-        // 実際の上限値の絶対値
         float absMax = Mathf.Max(Mathf.Abs(minAsset), Mathf.Abs(maxAsset));
         int absInt = Mathf.RoundToInt(absMax);
 
-        // 0, ±上限の文字列
         string topText = $"{absInt.ToString("N0")}円";
         string middleText = "0円";
         string bottomText = $"-{absInt.ToString("N0")}円";
 
-        // ラベルは「上 → 中央 → 下」の順で並んでいる想定
         for (int i = 0; i < n; i++)
         {
             string text;
@@ -333,7 +295,6 @@ public class SimulationGraphUI : MonoBehaviour
             }
             else
             {
-                // 3つ無い場合は線形に振り分け（保険）
                 float t = (n == 1) ? 0f : (float)i / (n - 1);
                 float v = Mathf.Lerp(-absMax, absMax, t);
                 int vi = Mathf.RoundToInt(v);
@@ -345,7 +306,6 @@ public class SimulationGraphUI : MonoBehaviour
         }
     }
 
-    /// <summary>X軸ラベルを 0年〜maxYear年 で更新</summary>
     private void UpdateXAxisLabels()
     {
         if (xAxisLabelsRoot == null) return;
@@ -363,7 +323,7 @@ public class SimulationGraphUI : MonoBehaviour
 
         for (int i = 0; i < n; i++)
         {
-            float t = (n == 1) ? 0f : (float)i / (n - 1);  // 左0〜右1
+            float t = (n == 1) ? 0f : (float)i / (n - 1);
             int yearLabel = Mathf.RoundToInt(t * maxYear);
             string text = $"{yearLabel}年";
 
@@ -373,7 +333,7 @@ public class SimulationGraphUI : MonoBehaviour
     }
 
     //========================================================
-    //  ホバー表示
+    //  ホバー表示（元のロジックのまま）
     //========================================================
 
     private void UpdateHover()
@@ -385,7 +345,6 @@ public class SimulationGraphUI : MonoBehaviour
             return;
         }
 
-        // 画面上のマウス座標 → graphRect のローカル座標
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 graphRect, Input.mousePosition, null, out Vector2 local))
         {
@@ -393,13 +352,10 @@ public class SimulationGraphUI : MonoBehaviour
         }
 
         Rect r = graphRect.rect;
-
-        // pivot 中心のローカル座標 → 左下(0,0)基準の座標に変換
         Vector2 fromBL = local - new Vector2(r.xMin, r.yMin);
         float width = r.width;
         float height = r.height;
 
-        // グラフ範囲外ならホバー非表示
         if (fromBL.x < 0 || fromBL.x > width || fromBL.y < 0 || fromBL.y > height)
         {
             if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
@@ -407,15 +363,12 @@ public class SimulationGraphUI : MonoBehaviour
             return;
         }
 
-        //----------------------------------------------------
-        // 一番近い点を距離で探す
-        //----------------------------------------------------
         int closestIndex = -1;
         float closestSqrDist = float.MaxValue;
 
         for (int i = 0; i < pointPositions.Count; i++)
         {
-            Vector2 diff = pointPositions[i] - fromBL; // 同じローカル座標系
+            Vector2 diff = pointPositions[i] - fromBL;
             float sqrDist = diff.sqrMagnitude;
 
             if (sqrDist < closestSqrDist)
@@ -425,7 +378,6 @@ public class SimulationGraphUI : MonoBehaviour
             }
         }
 
-        // 線／点から遠すぎる場合はホバーしない
         if (closestIndex < 0 || closestSqrDist > hoverSnapMaxDistance * hoverSnapMaxDistance)
         {
             if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
