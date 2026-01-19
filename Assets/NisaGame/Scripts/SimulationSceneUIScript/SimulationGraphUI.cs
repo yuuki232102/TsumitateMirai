@@ -60,8 +60,9 @@ public class SimulationGraphUI : MonoBehaviour
     private TMP_Text[] xAxisLabelsTMP;
     private Text[] xAxisLabelsUGUI;
 
-    private readonly List<int> years = new List<int>();   // X：年
-    private readonly List<int> assets = new List<int>();  // Y：資産
+    private readonly List<int> years = new List<int>();          // X：年
+    private readonly List<int> assets = new List<int>();         // Y：資産
+    private readonly List<string> yearEventLabels = new List<string>(); // 年の景気ラベル（最大2つ連結済み）
 
     private readonly List<Vector2> pointPositions = new List<Vector2>();
 
@@ -106,6 +107,7 @@ public class SimulationGraphUI : MonoBehaviour
     {
         years.Clear();
         assets.Clear();
+        yearEventLabels.Clear();
         pointPositions.Clear();
 
         ClearGraphVisuals();
@@ -118,10 +120,18 @@ public class SimulationGraphUI : MonoBehaviour
         if (hoverInfoText != null) hoverInfoText.text = "";
     }
 
+    // 互換用（他から2引数で呼ばれても壊れないように残す）
     public void AddPoint(int yearIndex, int asset)
+    {
+        AddPoint(yearIndex, asset, "平常");
+    }
+
+    // 方式1：景気ラベル付き
+    public void AddPoint(int yearIndex, int asset, string eventLabel)
     {
         years.Add(yearIndex);
         assets.Add(asset);
+        yearEventLabels.Add(string.IsNullOrEmpty(eventLabel) ? "平常" : eventLabel);
         RebuildGraph();
     }
 
@@ -242,7 +252,7 @@ public class SimulationGraphUI : MonoBehaviour
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
                 line.localRotation = Quaternion.Euler(0f, 0f, angle);
 
-                // ★ここで上昇/下落に応じて色を変える
+                // 上昇/下落に応じて色を変える
                 float delta = assets[i] - assets[i - 1];
                 var graphic = line.GetComponent<Graphic>();
                 if (graphic != null)
@@ -259,7 +269,7 @@ public class SimulationGraphUI : MonoBehaviour
     }
 
     //========================================================
-    //  軸ラベル更新（略：ここはあなたの元コードと同じ）
+    //  軸ラベル更新
     //========================================================
 
     private void UpdateYAxisLabels(float minAsset, float maxAsset)
@@ -333,7 +343,7 @@ public class SimulationGraphUI : MonoBehaviour
     }
 
     //========================================================
-    //  ホバー表示（元のロジックのまま）
+    //  ホバー表示
     //========================================================
 
     private void UpdateHover()
@@ -388,9 +398,15 @@ public class SimulationGraphUI : MonoBehaviour
         int year = years[closestIndex];
         int asset = assets[closestIndex];
 
+        string label = "平常";
+        if (closestIndex >= 0 && closestIndex < yearEventLabels.Count && !string.IsNullOrEmpty(yearEventLabels[closestIndex]))
+        {
+            label = yearEventLabels[closestIndex];
+        }
+
         if (hoverInfoText != null)
         {
-            hoverInfoText.text = $"{year}年目 : {asset.ToString("N0")}円";
+            hoverInfoText.text = $"{year}年目 : {asset.ToString("N0")}円\n景気: {label}";
         }
 
         if (hoverMarker != null)

@@ -6,23 +6,18 @@ using TMPro;
 public class SimulationSceneManager : MonoBehaviour
 {
     //========================
-    //  内部用：景気イベント種別
-    //========================
-    
-
-    //========================
     //  UI 参照
     //========================
 
     [Header("年数表示 UI")]
-    [SerializeField] private TMP_Text yearText;                 // Text_YearCounter
+    [SerializeField] private TMP_Text yearText;
 
     [Header("資産表示 UI")]
-    [SerializeField] private TMP_Text currentAssetText;         // Text_CurrentAssetValue
+    [SerializeField] private TMP_Text currentAssetText;
 
     [Header("積立額 UI")]
-    [SerializeField] private TMP_Text monthlyAmountText;        // Text_MonthlyAmount
-    [SerializeField] private Slider monthlyAmountSlider;        // Slider_MonthlyAmount
+    [SerializeField] private TMP_Text monthlyAmountText;
+    [SerializeField] private Slider monthlyAmountSlider;
 
     [Header("リスク選択 UI")]
     [SerializeField] private Toggle riskLowToggle;
@@ -32,7 +27,7 @@ public class SimulationSceneManager : MonoBehaviour
 
     [Header("年数設定")]
     [SerializeField] private int maxYear = 15;
-    [SerializeField] private int currentYear = 0;   // 0,1,2,...maxYear
+    [SerializeField] private int currentYear = 0;
 
     [Header("積立額設定")]
     [SerializeField] private int monthlyAmount = 1000;
@@ -41,12 +36,12 @@ public class SimulationSceneManager : MonoBehaviour
     [SerializeField] private int maxMonthlyAmount = 33000;
 
     [Header("資産状態（シミュレーション用）")]
-    [SerializeField] private int assetAtStartOfYear = 0;        // その年の開始時点の資産
-    [SerializeField] private int currentAsset = 0;              // 画面に出している現在の資産（プレビュー込み）
-    [SerializeField] private int totalPrincipal = 0;            // 積み立てた元本の合計
+    [SerializeField] private int assetAtStartOfYear = 0;
+    [SerializeField] private int currentAsset = 0;
+    [SerializeField] private int totalPrincipal = 0;
 
-    [Header("リスク設定")]
-    [SerializeField] private int currentRiskType = 1;           // 0:低 1:中 2:高
+    [Header("リスク設定（確定値）")]
+    [SerializeField] private int currentRiskType = 1;   // 0:低 1:中 2:高（確定値）
 
     [Header("リスク別期待リターン（年率）")]
     [SerializeField] private float lowRiskReturnRate = 0.02f;
@@ -75,25 +70,30 @@ public class SimulationSceneManager : MonoBehaviour
     //  内部データ
     //========================
 
-    // 各年の「年末時点の資産」
     private readonly List<int> yearEndAssets = new List<int>();
-
-    // 各年ごとに、その年の「12ヶ月の資産推移」
     private readonly List<List<int>> monthlyAssetsPerYear = new List<List<int>>();
-
-    // 将来 UI に出すかもしれない用に：各年の景気イベントスケジュールも保存しておく
-    // （今は利回り計算でしか使っていないが、後で月別グラフに色帯を出したいときに使える）
     private readonly List<EconomicEventType[]> yearlyEvents = new List<EconomicEventType[]>();
 
-    // スライダー更新中フラグ（無限ループ防止）
     private bool isUpdatingMonthlySlider = false;
-
-    // グラフトグルの内部更新フラグ
     private bool isUpdatingGraphToggles = false;
 
+    // リスクUIの内部更新フラグ（トグルの無限ループ防止）
+    private bool isUpdatingRiskToggles = false;
+
     //========================
-    //  Unity ライフサイクル
+    //  方式A用：リスク確定のための状態
     //========================
+
+    // UIで選ばれている「予約」リスク（トグル操作で変わる）
+    private int selectedRiskType = 1;
+
+    // 切替回数（確定した回数のみカウント）
+    private int riskChangeCount = 0;
+    private const int MaxRiskChanges = 4;
+
+    // 次月ペナルティ（確定した次の1ヶ月だけ）
+    private bool pendingRiskPenalty = false;
+    private float pendingPenaltyRate = 0f;
 
     private void Start()
     {
@@ -120,16 +120,16 @@ public class SimulationSceneManager : MonoBehaviour
         }
 
         //--------------------------------
-        // リスクトグル
+        // リスクトグル（予約変更のみ）
         //--------------------------------
         if (riskLowToggle != null)
-            riskLowToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(0); });
+            riskLowToggle.onValueChanged.AddListener(isOn => { if (isOn) SetSelectedRiskType(0); });
 
         if (riskMiddleToggle != null)
-            riskMiddleToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(1); });
+            riskMiddleToggle.onValueChanged.AddListener(isOn => { if (isOn) SetSelectedRiskType(1); });
 
         if (riskHighToggle != null)
-            riskHighToggle.onValueChanged.AddListener(isOn => { if (isOn) SetRiskType(2); });
+            riskHighToggle.onValueChanged.AddListener(isOn => { if (isOn) SetSelectedRiskType(2); });
 
         //--------------------------------
         // グラフトグル
@@ -164,8 +164,14 @@ public class SimulationSceneManager : MonoBehaviour
         monthlyAssetsPerYear.Clear();
         yearlyEvents.Clear();
 
+        // 方式A：予約値の初期化
+        selectedRiskType = currentRiskType;
+        riskChangeCount = 0;
+        pendingRiskPenalty = false;
+        pendingPenaltyRate = 0f;
+
         //--------------------------------
-        // グラフ初期化（0年目・資産0円の点を 1 つ置く）
+        // グラフ初期化（0年目点）
         //--------------------------------
         InitializeGraphs();
 
@@ -220,31 +226,42 @@ public class SimulationSceneManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// リスクUIは「予約(selectedRiskType)」を表示する。
+    /// （確定(currentRiskType)は次の年へ押下で更新される）
+    /// </summary>
     private void UpdateRiskUI()
     {
-        if (riskLowToggle != null) riskLowToggle.isOn = (currentRiskType == 0);
-        if (riskMiddleToggle != null) riskMiddleToggle.isOn = (currentRiskType == 1);
-        if (riskHighToggle != null) riskHighToggle.isOn = (currentRiskType == 2);
+        if (isUpdatingRiskToggles) return;
+
+        isUpdatingRiskToggles = true;
+
+        if (riskLowToggle != null) riskLowToggle.isOn = (selectedRiskType == 0);
+        if (riskMiddleToggle != null) riskMiddleToggle.isOn = (selectedRiskType == 1);
+        if (riskHighToggle != null) riskHighToggle.isOn = (selectedRiskType == 2);
+
+        isUpdatingRiskToggles = false;
 
         if (riskLabelText != null)
         {
             string label = "中リスク";
-            if (currentRiskType == 0) label = "低リスク";
-            else if (currentRiskType == 2) label = "高リスク";
+            if (selectedRiskType == 0) label = "低リスク";
+            else if (selectedRiskType == 2) label = "高リスク";
             riskLabelText.text = label;
         }
     }
 
     //========================
-    //  リスク変更
+    //  リスク変更（予約）
     //========================
 
-    private void SetRiskType(int type)
+    private void SetSelectedRiskType(int type)
     {
-        if (currentRiskType == type) return;
-        currentRiskType = type;
+        if (isUpdatingRiskToggles) return;
+        if (selectedRiskType == type) return;
+
+        selectedRiskType = type;
         UpdateRiskUI();
-        // ※将来、リスク変更ペナルティを入れるならここでフラグ管理
     }
 
     //========================
@@ -260,48 +277,57 @@ public class SimulationSceneManager : MonoBehaviour
 
         monthlyAmount = snapped;
 
-        // スライダーをスナップ値に戻す
         isUpdatingMonthlySlider = true;
         monthlyAmountSlider.value = monthlyAmount;
         isUpdatingMonthlySlider = false;
 
-        // テキスト更新
         UpdateMonthlyAmountText();
 
-        // プレビュー用：今年の開始資産 + 今月の積み立て 1 回分
         currentAsset = assetAtStartOfYear + monthlyAmount;
         UpdateCurrentAssetText();
     }
 
     //========================
-    //  次の年へボタン
+    //  次の年へボタン（方式A：ここでリスク確定）
     //========================
 
     public void OnClickNextYear()
     {
         if (currentYear >= maxYear) return;
 
-        // この年の景気イベントスケジュールを事前に決める（12ヶ月分）
+        // 0) リスク切替をここで確定（方式A）
+        ConfirmRiskChangeIfNeeded();
+
+        // 1) この年の景気イベントスケジュールを事前に決める（12ヶ月分）
         EconomicEventType[] eventsThisYear = GenerateEventsForOneYear();
 
-        // この年の 12 ヶ月をシミュレート
+        // 2) 年別グラフに表示する景気ラベル（最大2つ）
+        string yearEventLabel = BuildYearEventLabel(eventsThisYear);
+
+        // 3) この年の 12 ヶ月をシミュレート
         List<int> monthlyAssets = new List<int>();
         int asset = assetAtStartOfYear;
 
         for (int month = 0; month < 12; month++)
         {
-            // まず積立
+            // 積立
             asset += monthlyAmount;
             totalPrincipal += monthlyAmount;
 
-            // この月の利回りを、イベント＋ランダム込みで計算
+            // 月利（イベント＋必要ならノイズ）
             float monthlyRate = GetMonthlyRate(eventsThisYear[month]);
 
-            // 資産に利回りをかける
+            // 次月ペナルティ（確定した次の1ヶ月だけ）
+            if (pendingRiskPenalty)
+            {
+                monthlyRate += pendingPenaltyRate;
+                pendingRiskPenalty = false;
+                pendingPenaltyRate = 0f;
+            }
+
             float afterReturn = asset * (1f + monthlyRate);
             asset = Mathf.RoundToInt(afterReturn);
 
-            // 月末資産として保存
             monthlyAssets.Add(asset);
         }
 
@@ -315,21 +341,14 @@ public class SimulationSceneManager : MonoBehaviour
         monthlyAssetsPerYear.Add(monthlyAssets);
         yearlyEvents.Add(eventsThisYear);
 
-        // 年別グラフに 1 点追加
+        // 年別グラフに 1 点追加（方式1：景気ラベル込み）
         if (graphUI != null)
         {
-            graphUI.AddPoint(currentYear, currentAsset);
+            graphUI.AddPoint(currentYear, currentAsset, yearEventLabel);
         }
 
-        // 月別グラフ…直近の年を表示
-        if (monthlyGraphUI != null)
-        {
-            int idx = Mathf.Clamp(currentYear - 1, 0, monthlyAssetsPerYear.Count - 1);
-
-            // 0→1年目のグラフだけ開始点オフセットを有効にする
-            bool useOffset = (idx == 0);
-            monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[idx], useOffset);
-        }
+        // 月別グラフ…直近の年を表示（イベントも渡す）
+        UpdateMonthlyGraphToLatestYear();
 
         // 詳細年スライダー範囲更新
         if (detailYearSlider != null)
@@ -341,8 +360,59 @@ public class SimulationSceneManager : MonoBehaviour
         UpdateDetailYearLabel();
         RefreshAllUI();
 
-        // ログ出力（任意）
-        AppendLog($"{currentYear}年目終了 : 資産 {currentAsset.ToString("N0")}円");
+        AppendLog($"{currentYear}年目終了 : 資産 {currentAsset.ToString("N0")}円（景気: {yearEventLabel}）");
+    }
+
+    /// <summary>
+    /// 方式A：次の年へ押下時に、予約リスク(selectedRiskType)を確定(currentRiskType)へ反映する。
+    /// 切替上限（4回）を超える場合は確定させず、予約を確定値に戻す。
+    /// 確定できた場合は「次の1ヶ月ペナルティ」を予約する。
+    /// </summary>
+    private void ConfirmRiskChangeIfNeeded()
+    {
+        if (selectedRiskType == currentRiskType) return;
+
+        if (riskChangeCount >= MaxRiskChanges)
+        {
+            // 確定拒否：予約を戻す
+            selectedRiskType = currentRiskType;
+            UpdateRiskUI();
+            AppendLog($"リスク変更は最大{MaxRiskChanges}回までです。変更は反映されませんでした。");
+            return;
+        }
+
+        // 確定
+        currentRiskType = selectedRiskType;
+        riskChangeCount++;
+
+        // 次月ペナルティ予約（確定した次の1ヶ月）
+        pendingRiskPenalty = true;
+        pendingPenaltyRate = GetRiskChangePenaltyForConfirmedRisk(currentRiskType);
+
+        AppendLog($"リスク変更確定：{GetRiskLabel(currentRiskType)}（{riskChangeCount}/{MaxRiskChanges}） 次月ペナルティ {pendingPenaltyRate * 100f:F2}%");
+    }
+
+    private float GetRiskChangePenaltyForConfirmedRisk(int riskType)
+    {
+        // 仕様：低 -0.10% / 中 -0.20% / 高 -0.30%
+        switch (riskType)
+        {
+            case 0: return -0.001f;
+            case 1: return -0.002f;
+            case 2: return -0.003f;
+            default: return -0.002f;
+        }
+    }
+
+    private string GetRiskLabel(int riskType)
+    {
+        switch (riskType)
+        {
+            case 0: return "低リスク";
+            case 1: return "中リスク";
+            case 2: return "高リスク";
+            default: return "中リスク";
+        }
     }
 
     //========================
@@ -351,87 +421,88 @@ public class SimulationSceneManager : MonoBehaviour
 
     private void InitializeGraphs()
     {
-        // 年別グラフ
         if (graphUI != null)
         {
-            // 一旦リセット
             graphUI.ResetGraph();
-
-            // 0年目の開始点（初期資産）を 1 点だけ登録
-            graphUI.AddPoint(0, assetAtStartOfYear);
+            graphUI.AddPoint(0, assetAtStartOfYear, "平常");
         }
 
-        // 月別グラフ（表示だけクリア）
         if (monthlyGraphUI != null)
         {
-            // 初期状態ではデータなし＆オフセットなし
-            monthlyGraphUI.SetMonthlyData(null, false);
+            monthlyGraphUI.SetMonthlyData(null, false, null);
         }
     }
 
     //========================
-    //  利率計算（イベント＋ランダムブレ込み）
+    //  月別グラフ表示更新（直近年）
     //========================
 
-    /// <summary>
-    /// 現在のリスクタイプとイベント種別に応じて、
-    /// その月の利回り（例: 0.01 → +1%）を返す。
-    /// </summary>
+    private void UpdateMonthlyGraphToLatestYear()
+    {
+        if (monthlyGraphUI == null) return;
+        if (monthlyAssetsPerYear.Count <= 0) return;
+
+        int idx = Mathf.Clamp(currentYear - 1, 0, monthlyAssetsPerYear.Count - 1);
+        bool useOffset = (idx == 0);
+
+        List<EconomicEventType> eventsList = null;
+        if (idx >= 0 && idx < yearlyEvents.Count && yearlyEvents[idx] != null)
+        {
+            eventsList = new List<EconomicEventType>(yearlyEvents[idx]);
+        }
+
+        monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[idx], useOffset, eventsList);
+    }
+
+    //========================
+    //  利率計算（イベント＋ランダムブレ込み）
+    //  ※平常時ノイズ0%確定
+    //========================
+
     private float GetMonthlyRate(EconomicEventType evType)
     {
-        // 1. リスク別のベース年率
         float yearly = middleRiskReturnRate;
         if (currentRiskType == 0) yearly = lowRiskReturnRate;
         else if (currentRiskType == 2) yearly = highRiskReturnRate;
 
-        // 年率 → 月率（複利ベース）
         float baseMonthly = Mathf.Pow(1f + yearly, 1f / 12f) - 1f;
 
-        // 2. イベント補正
         float eventDelta = 0f;
         switch (evType)
         {
-            case EconomicEventType.Boom:      // 好景気
-                eventDelta = 0.01f;          // +1%
+            case EconomicEventType.Boom:
+                eventDelta = 0.01f;
                 break;
-
-            case EconomicEventType.Recession: // 不景気
-                eventDelta = -0.01f;         // -1%
+            case EconomicEventType.Recession:
+                eventDelta = -0.01f;
                 break;
-
-            case EconomicEventType.Shock:     // ショック
-                eventDelta = -0.05f;         // -5%
+            case EconomicEventType.Shock:
+                eventDelta = -0.05f;
                 break;
-
             case EconomicEventType.None:
             default:
                 eventDelta = 0f;
                 break;
         }
 
-        // 3. リスク別ランダムブレ
-        float noiseAmp;
-        switch (currentRiskType)
+        // ★平常時はブレ0%
+        float noise = 0f;
+
+        if (evType != EconomicEventType.None)
         {
-            case 0: // 低リスク
-                noiseAmp = 0.01f;   // ±1%
-                break;
-            case 1: // 中リスク
-                noiseAmp = 0.02f;   // ±2%
-                break;
-            case 2: // 高リスク
-                noiseAmp = 0.04f;   // ±4%
-                break;
-            default:
-                noiseAmp = 0.02f;
-                break;
+            float noiseAmp;
+            switch (currentRiskType)
+            {
+                case 0: noiseAmp = 0.01f; break;
+                case 1: noiseAmp = 0.02f; break;
+                case 2: noiseAmp = 0.04f; break;
+                default: noiseAmp = 0.02f; break;
+            }
+
+            noise = Random.Range(-noiseAmp, noiseAmp);
         }
 
-        float noise = Random.Range(-noiseAmp, noiseAmp);
-
-        // 4. 最終的な月利
         float monthlyRate = baseMonthly + eventDelta + noise;
-
         return monthlyRate;
     }
 
@@ -439,12 +510,6 @@ public class SimulationSceneManager : MonoBehaviour
     //  景気イベントスケジュール生成
     //========================
 
-    /// <summary>
-    /// その年の 12ヶ月分の景気イベントスケジュールを作る。
-    /// - 少なくとも1つイベントを入れる
-    /// - 20%の確率で2つ目のイベントも入れる
-    /// - イベントの種類と期間は仕様どおり
-    /// </summary>
     private EconomicEventType[] GenerateEventsForOneYear()
     {
         EconomicEventType[] schedule = new EconomicEventType[12];
@@ -453,11 +518,9 @@ public class SimulationSceneManager : MonoBehaviour
             schedule[i] = EconomicEventType.None;
         }
 
-        // 必ず1つはイベントを入れる
         PlaceRandomEvent(schedule);
 
-        // 低確率で2つ目のイベント
-        float secondProb = 0.2f;  // 「低確率」イメージ
+        float secondProb = 0.2f;
         if (Random.value < secondProb)
         {
             PlaceRandomEvent(schedule);
@@ -466,19 +529,11 @@ public class SimulationSceneManager : MonoBehaviour
         return schedule;
     }
 
-    /// <summary>
-    /// 空いている月の範囲にランダムなイベントを1つ配置する。
-    /// 空きがない場合は何もしない。
-    /// </summary>
     private void PlaceRandomEvent(EconomicEventType[] schedule)
     {
-        // 1. イベント種別を確率で決める
         EconomicEventType type = DrawEventType();
-
-        // 2. 種別ごとの期間
         int duration = GetEventDuration(type);
 
-        // 3. 配置可能な開始月を探す（重ならない場所）
         List<int> candidateStarts = new List<int>();
 
         for (int start = 0; start <= 12 - duration; start++)
@@ -498,13 +553,8 @@ public class SimulationSceneManager : MonoBehaviour
             }
         }
 
-        if (candidateStarts.Count == 0)
-        {
-            // 置く場所がないので諦め
-            return;
-        }
+        if (candidateStarts.Count == 0) return;
 
-        // 4. 候補の中からランダムに開始月を選ぶ
         int chosenIndex = Random.Range(0, candidateStarts.Count);
         int chosenStart = candidateStarts[chosenIndex];
 
@@ -514,43 +564,70 @@ public class SimulationSceneManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// イベント種別を確率（好景気50%, 不景気38%, ショック12%）で1つ抽選
-    /// </summary>
     private EconomicEventType DrawEventType()
     {
-        float r = Random.value; // 0〜1
-
-        // 好景気 50%
+        float r = Random.value;
         if (r < 0.50f) return EconomicEventType.Boom;
-
-        // 不景気 38%（0.50〜0.88）
         if (r < 0.50f + 0.38f) return EconomicEventType.Recession;
-
-        // 残り 12% はショック
         return EconomicEventType.Shock;
     }
 
-    /// <summary>
-    /// 種別ごとの期間（単位：ヶ月）
-    /// 不景気: 3〜6ヶ月 / 好景気: 5〜8ヶ月 / ショック: 1〜3ヶ月
-    /// </summary>
     private int GetEventDuration(EconomicEventType type)
     {
         switch (type)
         {
-            case EconomicEventType.Recession:  // 3〜6ヶ月
-                return Random.Range(3, 7);     // 上限は排他的なので 7 → 3〜6
-
-            case EconomicEventType.Boom:       // 5〜8ヶ月
-                return Random.Range(5, 9);     // 5〜8
-
-            case EconomicEventType.Shock:      // 1〜3ヶ月
-                return Random.Range(1, 4);     // 1〜3
-
+            case EconomicEventType.Recession:
+                return Random.Range(3, 7);
+            case EconomicEventType.Boom:
+                return Random.Range(5, 9);
+            case EconomicEventType.Shock:
+                return Random.Range(1, 4);
             case EconomicEventType.None:
             default:
                 return 0;
+        }
+    }
+
+    //========================
+    //  年内イベント最大2つをラベル化（例：好景気 + 不景気）
+    //========================
+
+    private string BuildYearEventLabel(EconomicEventType[] eventsThisYear)
+    {
+        if (eventsThisYear == null || eventsThisYear.Length == 0) return "平常";
+
+        List<EconomicEventType> found = new List<EconomicEventType>(2);
+
+        EconomicEventType last = EconomicEventType.None;
+
+        for (int i = 0; i < eventsThisYear.Length; i++)
+        {
+            EconomicEventType cur = eventsThisYear[i];
+
+            // イベント開始（None→イベント or イベント種別の変化）を拾う
+            if (cur != last && cur != EconomicEventType.None)
+            {
+                found.Add(cur);
+                if (found.Count >= 2) break;
+            }
+
+            last = cur;
+        }
+
+        if (found.Count == 0) return "平常";
+        if (found.Count == 1) return GetEventLabel(found[0]);
+
+        return $"{GetEventLabel(found[0])} + {GetEventLabel(found[1])}";
+    }
+
+    private string GetEventLabel(EconomicEventType ev)
+    {
+        switch (ev)
+        {
+            case EconomicEventType.Boom: return "好景気";
+            case EconomicEventType.Recession: return "不景気";
+            case EconomicEventType.Shock: return "ショック";
+            default: return "平常";
         }
     }
 
@@ -564,13 +641,17 @@ public class SimulationSceneManager : MonoBehaviour
         UpdateDetailYearLabel();
 
         if (index < 0 || index >= monthlyAssetsPerYear.Count) return;
+        if (monthlyGraphUI == null) return;
 
-        if (monthlyGraphUI != null)
+        bool useOffset = (index == 0);
+
+        List<EconomicEventType> eventsList = null;
+        if (index >= 0 && index < yearlyEvents.Count && yearlyEvents[index] != null)
         {
-            // インデックス0（1年目）のときだけ開始点オフセットを有効にする
-            bool useOffset = (index == 0);
-            monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[index], useOffset);
+            eventsList = new List<EconomicEventType>(yearlyEvents[index]);
         }
+
+        monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[index], useOffset, eventsList);
     }
 
     private void UpdateDetailYearLabel()
@@ -589,7 +670,6 @@ public class SimulationSceneManager : MonoBehaviour
     {
         if (!isOn)
         {
-            // どちらも OFF になるのを防ぐ
             if (!graphYearlyToggle.isOn && !graphMonthlyToggle.isOn)
             {
                 isUpdatingGraphToggles = true;
