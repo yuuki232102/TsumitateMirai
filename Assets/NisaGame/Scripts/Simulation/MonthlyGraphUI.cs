@@ -16,9 +16,9 @@ public class MonthlyGraphUI : MonoBehaviour
     [SerializeField] private RectTransform pointPrefab;
     [SerializeField] private RectTransform linePrefab;
 
-    [Header("縦軸設定（0中心・±上限 値）")]
-    [SerializeField] private float minAbsMax = 800000f;      // 最低でもこのレンジ
-    [SerializeField] private float axisMargin = 50000f;      // デフォルト余白（年区分ONなら使われない）
+    [Header("縦軸設定（0中心・±上限）")]
+    [Tooltip("基準となる上限（最低でもこの±を確保する）")]
+    [SerializeField] private float minAbsMax = 800000f;
 
     [Header("AxisMargin（年区分：3/6/9/12年ごと）")]
     [SerializeField] private bool useAxisMarginByYear = true;
@@ -38,9 +38,33 @@ public class MonthlyGraphUI : MonoBehaviour
     [Tooltip("13年目以降のAxisMargin")]
     [SerializeField] private float axisMarginOver12 = 250000f;
 
+    [Tooltip("年番号未指定(-1)の時に使うAxisMargin")]
+    [SerializeField] private float axisMarginDefault = 50000f;
+
+    [Header("自動拡張（閾値到達で拡張）")]
+    [SerializeField] private bool enableAutoExpand = true;
+
+    [Tooltip("データが上限の何%に到達したら拡張するか（例：0.85=85%）")]
+    [Range(0.50f, 0.98f)]
+    [SerializeField] private float expandTriggerRatio = 0.85f;
+
+    [Tooltip("上限をキリの良い単位に切り上げる（例：100000 なら 10万円刻み）")]
+    [SerializeField] private float niceStep = 100000f;
+
     [Header("描画設定")]
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
+
+    [Header("ラインカラー設定（上昇/下落/平坦）")]
+    [SerializeField] private Color riseLineColor = new Color(0.6f, 1f, 0.3f, 1f);
+    [SerializeField] private Color fallLineColor = new Color(1f, 0.4f, 0.4f, 1f);
+    [SerializeField] private Color flatLineColor = Color.black;
+
+    [Header("ライン色：イベントで上書き（任意）")]
+    [SerializeField] private bool overrideLineColorByEvent = false;
+    [SerializeField] private Color boomLineColor = new Color(0.45f, 0.9f, 0.2f, 1f);
+    [SerializeField] private Color recessionLineColor = new Color(0.2f, 0.55f, 0.95f, 1f);
+    [SerializeField] private Color shockLineColor = new Color(0.95f, 0.25f, 0.25f, 1f);
 
     [Header("Y軸ラベルの親（3つ推奨）")]
     [SerializeField] private RectTransform yAxisLabelsRoot;
@@ -71,16 +95,23 @@ public class MonthlyGraphUI : MonoBehaviour
     private TMP_Text[] xAxisLabelsTMP;
     private Text[] xAxisLabelsUGUI;
 
-    // 描画用データ（0月点あり：points[0]=start, points[1..12]=月末）
+    // 0月点あり：assets[0]=0月(年初), assets[1..12]=各月末
     private readonly List<int> plottedAssets = new List<int>();
 
-    // 12ヶ月のイベント（Jan..Dec）。0月点には対応するイベントは無いので保持しない
+    // 12ヶ月イベント（1月〜12月）。0月点には対応イベントなし
     private readonly List<EconomicEventType> monthlyEvents = new List<EconomicEventType>();
 
+    // 各点のローカル座標（graphRect 左下原点）
     private readonly List<Vector2> pointPositions = new List<Vector2>();
 
     // 表示中の年（1〜）。未指定なら -1
     private int currentYearNumber = -1;
+
+    // 「前回表示していた年」：年が変わったらスケールキャッシュをリセットするため
+    private int lastYearNumber = int.MinValue;
+
+    // 現在の上限（±）を保持（閾値拡張のため）
+    private float currentAbsMax = -1f;
 
     private Canvas rootCanvas;
     private Camera uiCamera;
@@ -106,14 +137,14 @@ public class MonthlyGraphUI : MonoBehaviour
     {
         if (yAxisLabelsRoot != null)
         {
-            yAxisLabelsTMP = yAxisLabelsRoot.GetComponentsInChildren<TMP_Text>();
-            yAxisLabelsUGUI = yAxisLabelsRoot.GetComponentsInChildren<Text>();
+            yAxisLabelsTMP = yAxisLabelsRoot.GetComponentsInChildren<TMP_Text>(true);
+            yAxisLabelsUGUI = yAxisLabelsRoot.GetComponentsInChildren<Text>(true);
         }
 
         if (xAxisLabelsRoot != null)
         {
-            xAxisLabelsTMP = xAxisLabelsRoot.GetComponentsInChildren<TMP_Text>();
-            xAxisLabelsUGUI = xAxisLabelsRoot.GetComponentsInChildren<Text>();
+            xAxisLabelsTMP = xAxisLabelsRoot.GetComponentsInChildren<TMP_Text>(true);
+            xAxisLabelsUGUI = xAxisLabelsRoot.GetComponentsInChildren<Text>(true);
         }
     }
 
@@ -121,42 +152,45 @@ public class MonthlyGraphUI : MonoBehaviour
     //  Public API
     //========================================================
 
-    // 互換：従来呼び出し（0月点なし版）も残す（内部で0月点=最初の月末扱いにする）
+    // 互換：旧呼び出しが残っていても壊れないように置いておく
     public void SetMonthlyData(List<int> assetsForYear, bool useStartOffset, List<EconomicEventType> eventsForYear)
     {
-        // 旧仕様のまま呼ばれても壊れないように、
-        // startAsset=assetsForYear[0] として 0月点風に扱う（ただし厳密ではない）
-        int startAsset = 0;
-        List<int> monthEnds = assetsForYear ?? new List<int>();
-        if (monthEnds.Count > 0) startAsset = monthEnds[0];
-
-        SetMonthlyDataWithStartPoint(startAsset, monthEnds, eventsForYear, -1);
+        // 旧仕様は0月点が無いので、startAsset=0 扱い
+        SetMonthlyDataWithStartPoint(0, assetsForYear, eventsForYear, -1);
     }
 
-    // ★互換：yearNumberを渡さない呼び出し
+    // yearNumberなし版（互換）
     public void SetMonthlyDataWithStartPoint(int startAsset, List<int> monthEndAssets, List<EconomicEventType> eventsForYear)
     {
         SetMonthlyDataWithStartPoint(startAsset, monthEndAssets, eventsForYear, -1);
     }
 
-    // ★本命：0月点＋年番号つき
+    // ★本命：0月点 + 年番号つき
     public void SetMonthlyDataWithStartPoint(int startAsset, List<int> monthEndAssets, List<EconomicEventType> eventsForYear, int yearNumber)
     {
         currentYearNumber = yearNumber;
 
+        // ★年が変わったら上限キャッシュをリセット（ここが重要）
+        if (currentYearNumber != lastYearNumber)
+        {
+            currentAbsMax = -1f;
+            lastYearNumber = currentYearNumber;
+        }
+
         plottedAssets.Clear();
         monthlyEvents.Clear();
+        pointPositions.Clear();
 
         // 0月点
         plottedAssets.Add(startAsset);
 
-        // 1..12月末（最大12件想定）
+        // 1..12月末（最大12個想定）
         if (monthEndAssets != null && monthEndAssets.Count > 0)
         {
             plottedAssets.AddRange(monthEndAssets);
         }
 
-        // イベントは12個（Jan..Dec）
+        // イベントは12個（1月〜12月）
         if (eventsForYear != null && eventsForYear.Count > 0)
         {
             int count = Mathf.Min(12, eventsForYear.Count);
@@ -189,16 +223,55 @@ public class MonthlyGraphUI : MonoBehaviour
 
     private float GetAxisMarginForCurrentYear()
     {
-        if (!useAxisMarginByYear) return axisMargin;
+        if (!useAxisMarginByYear) return axisMarginDefault;
 
-        int y = currentYearNumber; // 1〜想定。未指定(-1)はデフォルトへ
-        if (y <= 0) return axisMargin;
+        int y = currentYearNumber; // 1〜想定、未指定なら default
+        if (y <= 0) return axisMarginDefault;
 
         if (y <= 3) return axisMarginUpTo3;
         if (y <= 6) return axisMarginUpTo6;
         if (y <= 9) return axisMarginUpTo9;
         if (y <= 12) return axisMarginUpTo12;
         return axisMarginOver12;
+    }
+
+    private float NiceCeil(float value)
+    {
+        float step = Mathf.Max(1f, niceStep);
+        return Mathf.Ceil(value / step) * step;
+    }
+
+    private float ResolveAbsMaxByThreshold(float absMaxData)
+    {
+        float baseAbs = Mathf.Max(1f, minAbsMax);
+
+        // 初期値
+        if (currentAbsMax <= 0f) currentAbsMax = baseAbs;
+
+        // まず最低保証
+        currentAbsMax = Mathf.Max(currentAbsMax, baseAbs);
+
+        if (!enableAutoExpand)
+        {
+            currentAbsMax = baseAbs;
+            return currentAbsMax;
+        }
+
+        float trigger = Mathf.Clamp(expandTriggerRatio, 0.50f, 0.98f);
+
+        if (absMaxData >= currentAbsMax * trigger)
+        {
+            float required = absMaxData / trigger;
+            required = Mathf.Max(required, baseAbs);
+            currentAbsMax = NiceCeil(required);
+        }
+
+        if (absMaxData > currentAbsMax)
+        {
+            currentAbsMax = NiceCeil(absMaxData);
+        }
+
+        return currentAbsMax;
     }
 
     private void RebuildGraph()
@@ -208,12 +281,13 @@ public class MonthlyGraphUI : MonoBehaviour
         ClearGraphVisuals();
         pointPositions.Clear();
 
-        // データなし
         if (plottedAssets.Count == 0)
         {
             float absMaxEmpty = Mathf.Max(1f, minAbsMax);
+            currentAbsMax = absMaxEmpty;
+
             UpdateYAxisLabels(-absMaxEmpty, absMaxEmpty);
-            UpdateXAxisLabels(13); // 0〜12月想定
+            UpdateXAxisLabels(13);
 
             if (hoverMarker != null) hoverMarker.gameObject.SetActive(false);
             if (hoverInfoText != null) hoverInfoText.text = "";
@@ -221,7 +295,7 @@ public class MonthlyGraphUI : MonoBehaviour
         }
 
         //====================================================
-        // 1) Y軸：その年の最大/最小（±）の絶対値最大に、marginを足して対称に
+        // 1) データ最大（絶対値）
         //====================================================
         float rawMin = plottedAssets[0];
         float rawMax = plottedAssets[0];
@@ -235,21 +309,23 @@ public class MonthlyGraphUI : MonoBehaviour
         float absMaxData = Mathf.Max(Mathf.Abs(rawMin), Mathf.Abs(rawMax));
         absMaxData += GetAxisMarginForCurrentYear();
 
-        float absMax = Mathf.Max(absMaxData, minAbsMax);
-        float minAsset = -absMax;
-        float maxAsset = +absMax;
+        //====================================================
+        // 2) 閾値ベースの自動拡張
+        //====================================================
+        float finalAbsMax = ResolveAbsMaxByThreshold(absMaxData);
+        finalAbsMax = Mathf.Max(1f, finalAbsMax);
+
+        float minAsset = -finalAbsMax;
+        float maxAsset = +finalAbsMax;
 
         UpdateYAxisLabels(minAsset, maxAsset);
-        UpdateXAxisLabels(plottedAssets.Count); // 13点なら 0..12月
+        UpdateXAxisLabels(plottedAssets.Count);
 
-        //====================================================
-        // 2) サイズ
-        //====================================================
         float width = graphRect.rect.width;
         float height = graphRect.rect.height;
 
         //====================================================
-        // 3) イベント帯（12セグメント：0→1月, ... 11→12月）
+        // 3) イベント帯（12セグメント）
         //====================================================
         DrawEventBands(width, height);
 
@@ -279,6 +355,9 @@ public class MonthlyGraphUI : MonoBehaviour
                 p.anchorMin = p.anchorMax = new Vector2(0f, 0f);
                 p.anchoredPosition = pos;
                 p.sizeDelta = new Vector2(pointSize, pointSize);
+
+                // 点は前面にしたいので最後に寄せる（帯より前、線より前）
+                p.SetAsLastSibling();
             }
 
             // 線
@@ -295,6 +374,39 @@ public class MonthlyGraphUI : MonoBehaviour
 
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
                 line.localRotation = Quaternion.Euler(0f, 0f, angle);
+
+                // ★色設定：プレハブ構造が子にGraphicを持っていても反映する
+                Graphic graphic = line.GetComponent<Graphic>();
+                if (graphic == null) graphic = line.GetComponentInChildren<Graphic>(true);
+
+                if (graphic != null)
+                {
+                    // まず上昇/下落/平坦
+                    int delta = plottedAssets[i] - plottedAssets[i - 1];
+                    Color c;
+                    if (delta > 0) c = riseLineColor;
+                    else if (delta < 0) c = fallLineColor;
+                    else c = flatLineColor;
+
+                    // 任意：イベントで上書き（この線は i-1月→i月 の区間。イベントは「i月」の月イベントに合わせる）
+                    // 0→1月 の線は 1月イベント（index0）でOK
+                    if (overrideLineColorByEvent)
+                    {
+                        int eventIndex = i - 1; // 0..11
+                        if (eventIndex >= 0 && eventIndex < monthlyEvents.Count)
+                        {
+                            var ev = monthlyEvents[eventIndex];
+                            if (ev == EconomicEventType.Boom) c = boomLineColor;
+                            else if (ev == EconomicEventType.Recession) c = recessionLineColor;
+                            else if (ev == EconomicEventType.Shock) c = shockLineColor;
+                        }
+                    }
+
+                    graphic.color = c;
+                }
+
+                // 線は帯より前、点より後にしたいので最後に寄せた後、点が上に来るよう点側で SetAsLastSibling している
+                line.SetAsLastSibling();
             }
 
             previousPos = pos;
@@ -307,13 +419,10 @@ public class MonthlyGraphUI : MonoBehaviour
         if (eventBandPrefab == null) return;
         if (plottedAssets.Count < 2) return;
 
-        // 0月点ありなら通常 13点 → 12セグメント
-        int segments = plottedAssets.Count - 1;
+        int segments = plottedAssets.Count - 1; // 13点→12セグメント
         if (segments <= 0) return;
 
         float segmentWidth = width / segments;
-
-        // イベントは 12ヶ月（Jan..Dec）
         int drawCount = Mathf.Min(12, segments);
 
         for (int i = 0; i < drawCount; i++)
@@ -331,7 +440,9 @@ public class MonthlyGraphUI : MonoBehaviour
             rt.anchoredPosition = new Vector2(centerX, height * 0.5f);
 
             band.color = GetEventBandColor(ev);
-            band.transform.SetSiblingIndex(0); // 最背面
+
+            // 背景なので最背面
+            band.transform.SetSiblingIndex(0);
         }
     }
 
@@ -398,7 +509,6 @@ public class MonthlyGraphUI : MonoBehaviour
         int n = Mathf.Max(nTMP, nGUI);
         if (n == 0 || pointCount <= 0) return;
 
-        // 0月点ありなら pointCount=13 → monthIndex 0..12
         for (int i = 0; i < n; i++)
         {
             float t = (n == 1) ? 0f : (float)i / (n - 1);
@@ -467,7 +577,6 @@ public class MonthlyGraphUI : MonoBehaviour
         int monthIndex = closestIndex; // 0..12
         int asset = plottedAssets[monthIndex];
 
-        // 0月はイベント無し、それ以外は monthIndex-1 を参照（1月→events[0]）
         EconomicEventType ev = EconomicEventType.None;
         if (monthIndex >= 1)
         {
@@ -475,13 +584,11 @@ public class MonthlyGraphUI : MonoBehaviour
             if (eIdx >= 0 && eIdx < monthlyEvents.Count) ev = monthlyEvents[eIdx];
         }
 
-        string evLabel = GetEventLabel(ev);
-
         if (hoverInfoText != null)
         {
             hoverInfoText.text =
                 $"{monthIndex}月 : {asset.ToString("N0")}円\n" +
-                $"景気: {evLabel}";
+                $"景気: {GetEventLabel(ev)}";
         }
 
         if (hoverMarker != null)
