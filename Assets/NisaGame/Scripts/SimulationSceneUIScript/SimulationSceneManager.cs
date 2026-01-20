@@ -70,9 +70,17 @@ public class SimulationSceneManager : MonoBehaviour
     //  内部データ
     //========================
 
+    // 各年の年末資産（1年目〜n年目の年末が index0〜）
     private readonly List<int> yearEndAssets = new List<int>();
+
+    // 各年ごとの月末資産（各Listは12個：1月末〜12月末）
     private readonly List<List<int>> monthlyAssetsPerYear = new List<List<int>>();
+
+    // 各年ごとの月イベント（12個）
     private readonly List<EconomicEventType[]> yearlyEvents = new List<EconomicEventType[]>();
+
+    // ★各年の「年初資産（0月点）」を保存（indexは上の2つと同じ）
+    private readonly List<int> yearStartAssets = new List<int>();
 
     private bool isUpdatingMonthlySlider = false;
     private bool isUpdatingGraphToggles = false;
@@ -163,6 +171,7 @@ public class SimulationSceneManager : MonoBehaviour
         yearEndAssets.Clear();
         monthlyAssetsPerYear.Clear();
         yearlyEvents.Clear();
+        yearStartAssets.Clear();
 
         // 方式A：予約値の初期化
         selectedRiskType = currentRiskType;
@@ -298,6 +307,9 @@ public class SimulationSceneManager : MonoBehaviour
         // 0) リスク切替をここで確定（方式A）
         ConfirmRiskChangeIfNeeded();
 
+        // ★その年の開始資産（0月点用）
+        int startAsset = assetAtStartOfYear;
+
         // 1) この年の景気イベントスケジュールを事前に決める（12ヶ月分）
         EconomicEventType[] eventsThisYear = GenerateEventsForOneYear();
 
@@ -336,7 +348,8 @@ public class SimulationSceneManager : MonoBehaviour
         currentAsset = asset;
         currentYear++;
 
-        // データ保存
+        // データ保存（全て同じindexで揃える）
+        yearStartAssets.Add(startAsset);
         yearEndAssets.Add(asset);
         monthlyAssetsPerYear.Add(monthlyAssets);
         yearlyEvents.Add(eventsThisYear);
@@ -347,7 +360,7 @@ public class SimulationSceneManager : MonoBehaviour
             graphUI.AddPoint(currentYear, currentAsset, yearEventLabel);
         }
 
-        // 月別グラフ…直近の年を表示（イベントも渡す）
+        // 月別グラフ…直近の年を表示（0月点あり）
         UpdateMonthlyGraphToLatestYear();
 
         // 詳細年スライダー範囲更新
@@ -429,12 +442,13 @@ public class SimulationSceneManager : MonoBehaviour
 
         if (monthlyGraphUI != null)
         {
+            // 初期はデータなし表示
             monthlyGraphUI.SetMonthlyData(null, false, null);
         }
     }
 
     //========================
-    //  月別グラフ表示更新（直近年）
+    //  月別グラフ表示更新（直近年 / 0月点あり）
     //========================
 
     private void UpdateMonthlyGraphToLatestYear()
@@ -443,15 +457,23 @@ public class SimulationSceneManager : MonoBehaviour
         if (monthlyAssetsPerYear.Count <= 0) return;
 
         int idx = Mathf.Clamp(currentYear - 1, 0, monthlyAssetsPerYear.Count - 1);
-        bool useOffset = (idx == 0);
 
-        List<EconomicEventType> eventsList = null;
+        List<EconomicEventType> eventsList = new List<EconomicEventType>();
         if (idx >= 0 && idx < yearlyEvents.Count && yearlyEvents[idx] != null)
         {
             eventsList = new List<EconomicEventType>(yearlyEvents[idx]);
         }
+        else
+        {
+            // 念のため12個Noneで埋める
+            for (int i = 0; i < 12; i++) eventsList.Add(EconomicEventType.None);
+        }
 
-        monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[idx], useOffset, eventsList);
+        int startAsset = 0;
+        if (idx >= 0 && idx < yearStartAssets.Count) startAsset = yearStartAssets[idx];
+
+        // ★0月点あり（13点）で表示
+        monthlyGraphUI.SetMonthlyDataWithStartPoint(startAsset, monthlyAssetsPerYear[idx], eventsList);
     }
 
     //========================
@@ -518,8 +540,10 @@ public class SimulationSceneManager : MonoBehaviour
             schedule[i] = EconomicEventType.None;
         }
 
+        // 必ず1つイベント
         PlaceRandomEvent(schedule);
 
+        // 低確率で2つ目
         float secondProb = 0.2f;
         if (Random.value < secondProb)
         {
@@ -597,7 +621,6 @@ public class SimulationSceneManager : MonoBehaviour
         if (eventsThisYear == null || eventsThisYear.Length == 0) return "平常";
 
         List<EconomicEventType> found = new List<EconomicEventType>(2);
-
         EconomicEventType last = EconomicEventType.None;
 
         for (int i = 0; i < eventsThisYear.Length; i++)
@@ -632,7 +655,7 @@ public class SimulationSceneManager : MonoBehaviour
     }
 
     //========================
-    //  月別グラフの年変更
+    //  月別グラフの年変更（0月点ありで表示）
     //========================
 
     private void OnDetailYearSliderChanged(float value)
@@ -643,15 +666,21 @@ public class SimulationSceneManager : MonoBehaviour
         if (index < 0 || index >= monthlyAssetsPerYear.Count) return;
         if (monthlyGraphUI == null) return;
 
-        bool useOffset = (index == 0);
-
-        List<EconomicEventType> eventsList = null;
+        List<EconomicEventType> eventsList = new List<EconomicEventType>();
         if (index >= 0 && index < yearlyEvents.Count && yearlyEvents[index] != null)
         {
             eventsList = new List<EconomicEventType>(yearlyEvents[index]);
         }
+        else
+        {
+            for (int i = 0; i < 12; i++) eventsList.Add(EconomicEventType.None);
+        }
 
-        monthlyGraphUI.SetMonthlyData(monthlyAssetsPerYear[index], useOffset, eventsList);
+        int startAsset = 0;
+        if (index >= 0 && index < yearStartAssets.Count) startAsset = yearStartAssets[index];
+
+        // ★0月点あり（13点）
+        monthlyGraphUI.SetMonthlyDataWithStartPoint(startAsset, monthlyAssetsPerYear[index], eventsList);
     }
 
     private void UpdateDetailYearLabel()

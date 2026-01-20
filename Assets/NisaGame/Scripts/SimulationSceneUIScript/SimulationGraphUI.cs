@@ -6,7 +6,7 @@ using TMPro;
 public class SimulationGraphUI : MonoBehaviour
 {
     //========================================================
-    //  インスペクタ設定
+    //  Inspector
     //========================================================
 
     [Header("グラフ範囲")]
@@ -19,18 +19,24 @@ public class SimulationGraphUI : MonoBehaviour
     [Header("基本設定")]
     [SerializeField] private int maxYear = 15;
 
-    [Header("縦軸設定（0中心・±上限 値）")]
-    [SerializeField] private float defaultAbsMaxSegment1 = 800000f; // 0〜5年
-    [SerializeField] private float defaultAbsMaxSegment2 = 800000f; // 6〜10年
-    [SerializeField] private float defaultAbsMaxSegment3 = 800000f; // 11〜15年
-    [SerializeField] private float axisMargin = 50000f;             // 実データに上乗せする余白
+    [Header("縦軸設定（基本は固定：0中心・±上限）")]
+    [Tooltip("初期のY軸上限（±）。必要に応じて自動拡張される。")]
+    [SerializeField] private float fixedAbsMax = 5000000f;
+
+    [Header("縦軸の自動拡張（上限に近づいたら引き上げ）")]
+    [Tooltip("abs(value) が fixedAbsMax * expandThreshold を超えたら拡張する。例：0.92")]
+    [Range(0.5f, 0.99f)]
+    [SerializeField] private float expandThreshold = 0.92f;
+
+    [Tooltip("拡張時に fixedAbsMax を何倍するか。例：1.25")]
+    [SerializeField] private float expandMultiplier = 1.25f;
+
+    [Tooltip("自動拡張の上限（暴走防止）。例：50,000,000")]
+    [SerializeField] private float maxAutoAbsMax = 50000000f;
 
     [Header("描画設定")]
     [SerializeField] private float pointSize = 12f;
     [SerializeField] private float lineThickness = 3f;
-
-    [Header("開始点オフセット")]
-    [SerializeField] private float startPointYOffset = 0f;
 
     [Header("ラインカラー設定")]
     [SerializeField] private Color riseLineColor = new Color(0.6f, 1f, 0.3f, 1f); // 黄緑
@@ -48,10 +54,10 @@ public class SimulationGraphUI : MonoBehaviour
     [SerializeField] private RectTransform hoverMarker;     // グラフ上の小さなマーカー
 
     [Header("ホバー感度設定")]
-    [SerializeField] private float hoverSnapMaxDistance = 40f; // この距離以内ならホバー有効
+    [SerializeField] private float hoverSnapMaxDistance = 40f;
 
     //========================================================
-    //  内部状態
+    //  Internal
     //========================================================
 
     private TMP_Text[] yAxisLabelsTMP;
@@ -60,29 +66,35 @@ public class SimulationGraphUI : MonoBehaviour
     private TMP_Text[] xAxisLabelsTMP;
     private Text[] xAxisLabelsUGUI;
 
-    private readonly List<int> years = new List<int>();          // X：年
-    private readonly List<int> assets = new List<int>();         // Y：資産
+    private readonly List<int> years = new List<int>();                 // X：年
+    private readonly List<int> assets = new List<int>();                // Y：資産
     private readonly List<string> yearEventLabels = new List<string>(); // 年の景気ラベル（最大2つ連結済み）
 
     private readonly List<Vector2> pointPositions = new List<Vector2>();
 
+    private Canvas rootCanvas;
+    private Camera uiCamera;
+
     //========================================================
-    //  Unity ライフサイクル
+    //  Unity
     //========================================================
 
     private void Awake()
     {
         CacheAxisLabels();
+
+        rootCanvas = (graphRect != null) ? graphRect.GetComponentInParent<Canvas>() : null;
+        uiCamera = null;
+        if (rootCanvas != null && rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
+        {
+            uiCamera = rootCanvas.worldCamera;
+        }
     }
 
     private void Update()
     {
         UpdateHover();
     }
-
-    //========================================================
-    //  ラベルキャッシュ
-    //========================================================
 
     private void CacheAxisLabels()
     {
@@ -100,7 +112,7 @@ public class SimulationGraphUI : MonoBehaviour
     }
 
     //========================================================
-    //  外部インターフェース
+    //  Public API
     //========================================================
 
     public void ResetGraph()
@@ -112,7 +124,8 @@ public class SimulationGraphUI : MonoBehaviour
 
         ClearGraphVisuals();
 
-        float absMax = defaultAbsMaxSegment1;
+        // Reset時点では fixedAbsMax の値は Inspector の値をそのまま使う前提
+        float absMax = Mathf.Max(1f, fixedAbsMax);
         UpdateYAxisLabels(-absMax, absMax);
         UpdateXAxisLabels();
 
@@ -120,23 +133,61 @@ public class SimulationGraphUI : MonoBehaviour
         if (hoverInfoText != null) hoverInfoText.text = "";
     }
 
-    // 互換用（他から2引数で呼ばれても壊れないように残す）
+    // 互換用：2引数
     public void AddPoint(int yearIndex, int asset)
     {
         AddPoint(yearIndex, asset, "平常");
     }
 
-    // 方式1：景気ラベル付き
+    // 景気ラベル付き（方式1）
     public void AddPoint(int yearIndex, int asset, string eventLabel)
     {
         years.Add(yearIndex);
         assets.Add(asset);
         yearEventLabels.Add(string.IsNullOrEmpty(eventLabel) ? "平常" : eventLabel);
+
+        // ★ 追加される新データに応じて上限を必要なら拡張
+        EnsureCapacityForValue(asset);
+
         RebuildGraph();
     }
 
     //========================================================
-    //  描画処理
+    //  Auto Expand
+    //========================================================
+
+    /// <summary>
+    /// 指定値が上限に近づく/超える場合、fixedAbsMax を段階的に引き上げる。
+    /// </summary>
+    private void EnsureCapacityForValue(int value)
+    {
+        float absValue = Mathf.Abs((float)value);
+        float absMax = Mathf.Max(1f, fixedAbsMax);
+
+        // パラメータ安全化
+        float threshold = Mathf.Clamp(expandThreshold, 0.5f, 0.99f);
+        float mult = Mathf.Max(1.01f, expandMultiplier);
+        float cap = Mathf.Max(absMax, maxAutoAbsMax);
+
+        // 近づいていなければ何もしない
+        if (absValue < absMax * threshold) return;
+
+        // 必要なら複数回拡張（1回で足りないケース対策）
+        int safety = 0;
+        while (absValue >= absMax * threshold && absMax < cap && safety < 50)
+        {
+            absMax *= mult;
+            safety++;
+        }
+
+        // 上限でクリップ
+        absMax = Mathf.Min(absMax, cap);
+
+        fixedAbsMax = absMax;
+    }
+
+    //========================================================
+    //  Draw
     //========================================================
 
     private void ClearGraphVisuals()
@@ -151,19 +202,6 @@ public class SimulationGraphUI : MonoBehaviour
         }
     }
 
-    private float GetDefaultAbsMaxForCurrentYears()
-    {
-        int lastYear = 0;
-        if (years.Count > 0)
-        {
-            lastYear = years[years.Count - 1];
-        }
-
-        if (lastYear <= 5) return defaultAbsMaxSegment1;
-        if (lastYear <= 10) return defaultAbsMaxSegment2;
-        return defaultAbsMaxSegment3;
-    }
-
     private void RebuildGraph()
     {
         if (graphRect == null) return;
@@ -171,37 +209,9 @@ public class SimulationGraphUI : MonoBehaviour
         ClearGraphVisuals();
         pointPositions.Clear();
 
-        float minAsset;
-        float maxAsset;
-
-        if (years.Count == 0)
-        {
-            float absMax = defaultAbsMaxSegment1;
-            minAsset = -absMax;
-            maxAsset = absMax;
-
-            UpdateYAxisLabels(minAsset, maxAsset);
-            UpdateXAxisLabels();
-            return;
-        }
-
-        float rawMin = assets[0];
-        float rawMax = assets[0];
-
-        for (int i = 1; i < assets.Count; i++)
-        {
-            if (assets[i] < rawMin) rawMin = assets[i];
-            if (assets[i] > rawMax) rawMax = assets[i];
-        }
-
-        float absMaxData = Mathf.Max(Mathf.Abs(rawMin), Mathf.Abs(rawMax));
-        absMaxData += axisMargin;
-
-        float absMaxDefault = GetDefaultAbsMaxForCurrentYears();
-        float finalAbsMax = Mathf.Max(absMaxData, absMaxDefault);
-
-        minAsset = -finalAbsMax;
-        maxAsset = finalAbsMax;
+        float absMax = Mathf.Max(1f, fixedAbsMax);
+        float minAsset = -absMax;
+        float maxAsset = absMax;
 
         UpdateYAxisLabels(minAsset, maxAsset);
         UpdateXAxisLabels();
@@ -219,11 +229,6 @@ public class SimulationGraphUI : MonoBehaviour
 
             float tY = Mathf.InverseLerp(minAsset, maxAsset, assets[i]);
             float y = tY * height;
-
-            if (years[i] == 0)
-            {
-                y += startPointYOffset;
-            }
 
             Vector2 pos = new Vector2(x, y);
             pointPositions.Add(pos);
@@ -252,9 +257,12 @@ public class SimulationGraphUI : MonoBehaviour
                 float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
                 line.localRotation = Quaternion.Euler(0f, 0f, angle);
 
-                // 上昇/下落に応じて色を変える
                 float delta = assets[i] - assets[i - 1];
+
+                // Prefab構造に強い（子にImageがあるケースも対応）
                 var graphic = line.GetComponent<Graphic>();
+                if (graphic == null) graphic = line.GetComponentInChildren<Graphic>();
+
                 if (graphic != null)
                 {
                     if (delta > 0f) graphic.color = riseLineColor;
@@ -269,7 +277,7 @@ public class SimulationGraphUI : MonoBehaviour
     }
 
     //========================================================
-    //  軸ラベル更新
+    //  Axis labels
     //========================================================
 
     private void UpdateYAxisLabels(float minAsset, float maxAsset)
@@ -343,7 +351,7 @@ public class SimulationGraphUI : MonoBehaviour
     }
 
     //========================================================
-    //  ホバー表示
+    //  Hover
     //========================================================
 
     private void UpdateHover()
@@ -356,13 +364,14 @@ public class SimulationGraphUI : MonoBehaviour
         }
 
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                graphRect, Input.mousePosition, null, out Vector2 local))
+                graphRect, Input.mousePosition, uiCamera, out Vector2 local))
         {
             return;
         }
 
         Rect r = graphRect.rect;
         Vector2 fromBL = local - new Vector2(r.xMin, r.yMin);
+
         float width = r.width;
         float height = r.height;
 
