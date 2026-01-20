@@ -4,19 +4,22 @@ using UnityEngine.SceneManagement;
 public class HowToPlaySceneManager : MonoBehaviour
 {
     // ==============================
-    // Scene Name 定義（整合性担保）
+    // Scene Name 定義
     // ==============================
     private const string TITLE_SCENE = "TitleScene";
     private const string SIMULATION_SCENE = "SimulationScene";
 
     // ==============================
-    // STEP 定義（安全な状態管理）
+    // STEP 定義
     // ==============================
     private enum HowToStep
     {
         Step1 = 1,
         Step2 = 2,
-        Step3 = 3
+        Step3 = 3,
+        Step4 = 4,
+        Step5 = 5,
+        Step6 = 6
     }
 
     // ==============================
@@ -26,6 +29,9 @@ public class HowToPlaySceneManager : MonoBehaviour
     [SerializeField] private GameObject step1Panel;
     [SerializeField] private GameObject step2Panel;
     [SerializeField] private GameObject step3Panel;
+    [SerializeField] private GameObject step4Panel;
+    [SerializeField] private GameObject step5Panel;
+    [SerializeField] private GameObject step6Panel;
 
     private HowToStep currentStep;
 
@@ -47,6 +53,9 @@ public class HowToPlaySceneManager : MonoBehaviour
         step1Panel.SetActive(step == HowToStep.Step1);
         step2Panel.SetActive(step == HowToStep.Step2);
         step3Panel.SetActive(step == HowToStep.Step3);
+        step4Panel.SetActive(step == HowToStep.Step4);
+        step5Panel.SetActive(step == HowToStep.Step5);
+        step6Panel.SetActive(step == HowToStep.Step6);
     }
 
     // ==============================
@@ -54,25 +63,17 @@ public class HowToPlaySceneManager : MonoBehaviour
     // ==============================
     public void OnClickNextStep()
     {
-        if (currentStep == HowToStep.Step1)
+        if (currentStep < HowToStep.Step6)
         {
-            ShowStep(HowToStep.Step2);
-        }
-        else if (currentStep == HowToStep.Step2)
-        {
-            ShowStep(HowToStep.Step3);
+            ShowStep(currentStep + 1);
         }
     }
 
     public void OnClickBackStep()
     {
-        if (currentStep == HowToStep.Step3)
+        if (currentStep > HowToStep.Step1)
         {
-            ShowStep(HowToStep.Step2);
-        }
-        else if (currentStep == HowToStep.Step2)
-        {
-            ShowStep(HowToStep.Step1);
+            ShowStep(currentStep - 1);
         }
     }
 
@@ -88,7 +89,7 @@ public class HowToPlaySceneManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ゲーム開始（SimulationScene）
+    /// ゲーム開始（最終STEP専用）
     /// </summary>
     public void OnClickStartGame()
     {
