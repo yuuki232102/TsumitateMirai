@@ -181,8 +181,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Now Loading
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: a70fcd9c58bb90448b4b470eb55f7c58, type: 2}
-  m_sharedMaterial: {fileID: -8171395115212478123, guid: a70fcd9c58bb90448b4b470eb55f7c58, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 4da94ae1ec567a646b45fba1625b3017, type: 2}
+  m_sharedMaterial: {fileID: -3371377365259317958, guid: 4da94ae1ec567a646b45fba1625b3017, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -500,7 +500,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 5000
   m_TargetDisplay: 0
 --- !u!224 &577211612
 RectTransform:
