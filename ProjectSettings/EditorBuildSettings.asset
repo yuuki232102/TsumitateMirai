@@ -26,4 +26,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/NisaGame/Scenes/LoadingScene.unity
     guid: fb4d297b6573d2242823f01fb96b52df
+  - enabled: 1
+    path: Assets/NisaGame/Scenes/ResultScene.unity
+    guid: 1a9b75aeb2f2fb94faa150d1a4195db3
   m_configObjects: {}
