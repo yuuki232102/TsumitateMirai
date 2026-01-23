@@ -1115,14 +1115,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 806793368}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 946.303, y: 629.8995, z: -7.4952474}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -13.6970215, y: 89.899475, z: -7.4952474}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2130339705}
   - {fileID: 999115160}
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1758765803}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &817074945
 GameObject:
@@ -1322,12 +1322,13 @@ MonoBehaviour:
   monthlyGraphRoot: {fileID: 999115159}
   yearlyGraphUI: {fileID: 2092559491}
   monthlyGraphUI: {fileID: 1846794813}
-  monthlyYearSlider: {fileID: 561486465}
-  monthlyYearLabel: {fileID: 1722657436}
+  yearSelectSlider: {fileID: 561486465}
+  yearSelectLabel: {fileID: 1722657436}
   backToTitleButton: {fileID: 1098613743}
   retryButton: {fileID: 0}
   titleSceneName: TitleScene
   simulationSceneName: SimulationScene
+  debugLog: 0
 --- !u!4 &953591407
 Transform:
   m_ObjectHideFlags: 0
@@ -3106,6 +3107,7 @@ RectTransform:
   - {fileID: 1054250475}
   - {fileID: 527817273}
   - {fileID: 561486464}
+  - {fileID: 806793369}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -3887,6 +3889,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: GraphArea
       objectReference: {fileID: 0}
+    - target: {fileID: 5909385366055031541, guid: 56724740309fe3446bf95b19bdf6962a, type: 3}
+      propertyPath: m_Color.a
+      value: 0.40784314
+      objectReference: {fileID: 0}
+    - target: {fileID: 5909385366055031541, guid: 56724740309fe3446bf95b19bdf6962a, type: 3}
+      propertyPath: m_Color.b
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5909385366055031541, guid: 56724740309fe3446bf95b19bdf6962a, type: 3}
+      propertyPath: m_Color.g
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5909385366055031541, guid: 56724740309fe3446bf95b19bdf6962a, type: 3}
+      propertyPath: m_Color.r
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3947,5 +3965,4 @@ SceneRoots:
   - {fileID: 324635237}
   - {fileID: 1758765803}
   - {fileID: 443233522}
-  - {fileID: 806793369}
   - {fileID: 953591407}

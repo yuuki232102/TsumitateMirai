@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -41,6 +42,9 @@ public class ResultSceneManager : MonoBehaviour
     [SerializeField] private string titleSceneName = "TitleScene";
     [SerializeField] private string simulationSceneName = "SimulationScene";
 
+    [Header("Debug (Optional)")]
+    [SerializeField] private bool debugLog = false;
+
     private bool isUpdatingToggles = false;
     private bool isUpdatingSlider = false;
 
@@ -49,43 +53,66 @@ public class ResultSceneManager : MonoBehaviour
     private void Start()
     {
         store = ResultDataStore.Instance;
+
+        // データが無い場合はタイトルへ（安全策）
         if (store == null || !store.HasData)
         {
-            // データが無い場合はタイトルへ（安全策）
             SceneManager.LoadScene(titleSceneName);
             return;
         }
 
-        // サマリー
+        // まずサマリー
         ApplySummary();
 
-        // トグル
+        // UIイベント登録（先に登録してOKだが、初期化時はNotify無しで値を入れる）
         if (graphYearlyToggle != null)
             graphYearlyToggle.onValueChanged.AddListener(isOn => OnGraphToggleChanged(true, isOn));
 
         if (graphMonthlyToggle != null)
             graphMonthlyToggle.onValueChanged.AddListener(isOn => OnGraphToggleChanged(false, isOn));
 
-        // 年選択スライダー（0..N）
-        SetupYearSlider();
+        if (yearSelectSlider != null)
+            yearSelectSlider.onValueChanged.AddListener(OnYearSliderChanged);
 
-        // グラフ描画
-        DrawYearlyGraph();
-        DrawMonthlyGraphForYear(GetSelectedYear());
-
-        // 初期表示：年別
-        isUpdatingToggles = true;
-        if (graphYearlyToggle != null) graphYearlyToggle.isOn = true;
-        if (graphMonthlyToggle != null) graphMonthlyToggle.isOn = false;
-        isUpdatingToggles = false;
-        ApplyGraphMode(true);
-
-        // ボタン
         if (backToTitleButton != null)
             backToTitleButton.onClick.AddListener(() => SceneManager.LoadScene(titleSceneName));
 
         if (retryButton != null)
             retryButton.onClick.AddListener(() => SceneManager.LoadScene(simulationSceneName));
+
+        // レイアウト確定後にグラフ描画（RectTransform/Canvas更新待ち）
+        StartCoroutine(InitializeAfterOneFrame());
+    }
+
+    private IEnumerator InitializeAfterOneFrame()
+    {
+        // 1フレーム待つ（UIレイアウトが確定してから描く）
+        yield return null;
+
+        // スライダー初期化（最後の年を選択）
+        SetupYearSlider_SelectLastYear();
+
+        // 年別グラフ描画
+        DrawYearlyGraph();
+
+        // 月別グラフ描画（選択年）
+        int selectedYear = GetSelectedYearSafe();
+        UpdateYearLabel(selectedYear);
+        DrawMonthlyGraphForYear(selectedYear);
+
+        // 初期表示：年別
+        isUpdatingToggles = true;
+        if (graphYearlyToggle != null) graphYearlyToggle.SetIsOnWithoutNotify(true);
+        if (graphMonthlyToggle != null) graphMonthlyToggle.SetIsOnWithoutNotify(false);
+        isUpdatingToggles = false;
+        ApplyGraphMode(showYearly: true);
+
+        if (debugLog)
+        {
+            Debug.Log($"[Result] Init done. maxYear={GetMaxYearFromStore()} selectedYear={selectedYear} " +
+                      $"monthlyCount={(store.MonthlyAssetsPerYear1ToN != null ? store.MonthlyAssetsPerYear1ToN.Count : 0)} " +
+                      $"startCount={(store.YearStartAssets1ToN != null ? store.YearStartAssets1ToN.Count : 0)}");
+        }
     }
 
     private void ApplySummary()
@@ -99,46 +126,70 @@ public class ResultSceneManager : MonoBehaviour
         if (profitText != null) profitText.text = $"{profit:N0}円";
     }
 
-    private void SetupYearSlider()
+    //========================
+    // Slider
+    //========================
+    private int GetMaxYearFromStore()
+    {
+        // YearlyAssets0ToN は 0..N なので Count-1 が最大年
+        if (store.YearlyAssets0ToN == null) return 0;
+        return Mathf.Max(0, store.YearlyAssets0ToN.Count - 1);
+    }
+
+    private void SetupYearSlider_SelectLastYear()
     {
         if (yearSelectSlider == null) return;
 
-        int maxYear = Mathf.Max(0, (store.YearlyAssets0ToN != null ? store.YearlyAssets0ToN.Count - 1 : 0));
+        int maxYear = GetMaxYearFromStore();
+
+        isUpdatingSlider = true;
 
         yearSelectSlider.minValue = 0;
         yearSelectSlider.maxValue = maxYear;
         yearSelectSlider.wholeNumbers = true;
 
-        isUpdatingSlider = true;
-        yearSelectSlider.value = maxYear; // デフォルトは最終年
+        // ★重要：Notify無しで値を入れる（初期化時のOnValueChanged暴発を防ぐ）
+        yearSelectSlider.SetValueWithoutNotify(maxYear);
+
         isUpdatingSlider = false;
 
-        yearSelectSlider.onValueChanged.AddListener(OnYearSliderChanged);
-
-        UpdateYearLabel((int)yearSelectSlider.value);
+        // ラベルは明示更新
+        UpdateYearLabel(maxYear);
     }
 
-    private int GetSelectedYear()
+    private int GetSelectedYearSafe()
     {
         if (yearSelectSlider == null) return 0;
-        return Mathf.RoundToInt(yearSelectSlider.value);
+        return Mathf.Clamp(Mathf.RoundToInt(yearSelectSlider.value), 0, GetMaxYearFromStore());
     }
 
     private void OnYearSliderChanged(float v)
     {
         if (isUpdatingSlider) return;
 
-        int year = Mathf.RoundToInt(v);
+        int year = Mathf.Clamp(Mathf.RoundToInt(v), 0, GetMaxYearFromStore());
         UpdateYearLabel(year);
+
+        // 月別表示中でなくても、データは更新しておく（切替時に即表示できる）
         DrawMonthlyGraphForYear(year);
+
+        if (debugLog)
+            Debug.Log($"[Result] Slider changed -> year={year}");
     }
 
     private void UpdateYearLabel(int year)
     {
         if (yearSelectLabel == null) return;
-        yearSelectLabel.text = $"選択中：{year}年目の月別グラフ";
+
+        if (year <= 0)
+            yearSelectLabel.text = $"選択中：{year}年目（開始時）";
+        else
+            yearSelectLabel.text = $"選択中：{year}年目";
     }
 
+    //========================
+    // Draw Graphs
+    //========================
     private void DrawYearlyGraph()
     {
         if (yearlyGraphUI == null) return;
@@ -153,11 +204,10 @@ public class ResultSceneManager : MonoBehaviour
             string label = "平常";
             if (store.YearlyEventLabels0ToN != null && y < store.YearlyEventLabels0ToN.Count)
             {
-                if (!string.IsNullOrEmpty(store.YearlyEventLabels0ToN[y]))
-                    label = store.YearlyEventLabels0ToN[y];
+                var s = store.YearlyEventLabels0ToN[y];
+                if (!string.IsNullOrEmpty(s)) label = s;
             }
 
-            // 0年目も描く
             yearlyGraphUI.AddPoint(y, asset, label);
         }
     }
@@ -166,51 +216,65 @@ public class ResultSceneManager : MonoBehaviour
     {
         if (monthlyGraphUI == null) return;
 
-        // 0年目：全部0で表示（0月点 + 12ヶ月末）
+        // 0年目：全部0（0月点 + 12ヶ月末）
         if (year <= 0)
         {
-            var zeros12 = new List<int>(12);
-            for (int i = 0; i < 12; i++) zeros12.Add(0);
+            var monthEnds12_zero = new List<int>(12);
+            for (int i = 0; i < 12; i++) monthEnds12_zero.Add(0);
 
             var events12_zero = new List<EconomicEventType>(12);
             for (int i = 0; i < 12; i++) events12_zero.Add(EconomicEventType.None);
 
-            monthlyGraphUI.SetMonthlyDataWithStartPoint(0, zeros12, events12_zero, 0);
+            monthlyGraphUI.SetMonthlyDataWithStartPoint(0, monthEnds12_zero, events12_zero, 0);
             return;
         }
 
         int idx = year - 1; // 1年目→index0
 
-        int startAsset = (store.YearStartAssets1ToN != null && idx >= 0 && idx < store.YearStartAssets1ToN.Count)
-            ? store.YearStartAssets1ToN[idx]
-            : 0;
+        // 年初資産
+        int startAsset = 0;
+        if (store.YearStartAssets1ToN != null && idx >= 0 && idx < store.YearStartAssets1ToN.Count)
+            startAsset = store.YearStartAssets1ToN[idx];
 
-        List<int> list12 = (store.MonthlyAssetsPerYear1ToN != null && idx >= 0 && idx < store.MonthlyAssetsPerYear1ToN.Count)
-            ? store.MonthlyAssetsPerYear1ToN[idx]
-            : null;
+        // 月末資産（12個） ※必ずコピーして扱う
+        List<int> monthEnds12 = null;
+        if (store.MonthlyAssetsPerYear1ToN != null && idx >= 0 && idx < store.MonthlyAssetsPerYear1ToN.Count)
+        {
+            var src = store.MonthlyAssetsPerYear1ToN[idx];
+            if (src != null) monthEnds12 = new List<int>(src);
+        }
+        if (monthEnds12 == null) monthEnds12 = new List<int>(12);
 
-        // 保険：nullなら0埋め
-        if (list12 == null) list12 = new List<int>(12);
-        while (list12.Count < 12) list12.Add(list12.Count > 0 ? list12[list12.Count - 1] : startAsset);
-        if (list12.Count > 12) list12.RemoveRange(12, list12.Count - 12);
+        // 12に正規化
+        while (monthEnds12.Count < 12)
+        {
+            int prev = (monthEnds12.Count > 0) ? monthEnds12[monthEnds12.Count - 1] : startAsset;
+            monthEnds12.Add(prev);
+        }
+        if (monthEnds12.Count > 12) monthEnds12.RemoveRange(12, monthEnds12.Count - 12);
 
-        // イベント12個
+        // イベント12個 ※必ず List 化して12に正規化
         var events12 = new List<EconomicEventType>(12);
-        EconomicEventType[] evArr =
-            (store.YearlyEvents1ToN != null && idx >= 0 && idx < store.YearlyEvents1ToN.Count)
-                ? store.YearlyEvents1ToN[idx]
-                : null;
+        EconomicEventType[] evArr = null;
+        if (store.YearlyEvents1ToN != null && idx >= 0 && idx < store.YearlyEvents1ToN.Count)
+            evArr = store.YearlyEvents1ToN[idx];
 
         if (evArr != null) events12.AddRange(evArr);
+
         while (events12.Count < 12) events12.Add(EconomicEventType.None);
         if (events12.Count > 12) events12.RemoveRange(12, events12.Count - 12);
 
-        monthlyGraphUI.SetMonthlyDataWithStartPoint(startAsset, list12, events12, year);
+        if (debugLog)
+        {
+            Debug.Log($"[Result] DrawMonthly year={year} idx={idx} start={startAsset} " +
+                      $"m0={monthEnds12[0]} m11={monthEnds12[11]} evCount={events12.Count}");
+        }
+
+        monthlyGraphUI.SetMonthlyDataWithStartPoint(startAsset, monthEnds12, events12, year);
     }
 
-
     //========================
-    // グラフ表示切り替え
+    // Toggle
     //========================
     private void OnGraphToggleChanged(bool yearlyToggle, bool isOn)
     {
@@ -220,11 +284,23 @@ public class ResultSceneManager : MonoBehaviour
         bool showYearly = yearlyToggle;
 
         isUpdatingToggles = true;
-        if (graphYearlyToggle != null) graphYearlyToggle.isOn = showYearly;
-        if (graphMonthlyToggle != null) graphMonthlyToggle.isOn = !showYearly;
+        if (graphYearlyToggle != null) graphYearlyToggle.SetIsOnWithoutNotify(showYearly);
+        if (graphMonthlyToggle != null) graphMonthlyToggle.SetIsOnWithoutNotify(!showYearly);
         isUpdatingToggles = false;
 
         ApplyGraphMode(showYearly);
+
+        // 切り替えた瞬間に確実に描画しておく
+        if (showYearly)
+        {
+            DrawYearlyGraph();
+        }
+        else
+        {
+            int year = GetSelectedYearSafe();
+            UpdateYearLabel(year);
+            DrawMonthlyGraphForYear(year);
+        }
     }
 
     private void ApplyGraphMode(bool showYearly)
