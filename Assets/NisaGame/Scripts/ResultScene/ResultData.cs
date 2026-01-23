@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 
 [Serializable]
 public class ResultDatayou
@@ -9,6 +9,6 @@ public class ResultDatayou
     public int totalPrincipal;
     public int totalProfit;
 
-    public int[] yearAssets0toMax;      // ’·‚³ maxYear+1
-    public int[][] monthlyAssets0toMax; // monthlyAssets0toMax[y] ‚Í’·‚³13
+    public int[] yearAssets0toMax;      // é•·ã• maxYear+1
+    public int[][] monthlyAssets0toMax; // monthlyAssets0toMax[y] ã¯é•·ã•13
 }
