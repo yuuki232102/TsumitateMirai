@@ -1,7 +1,7 @@
 using System;
 
 [Serializable]
-public class ResultData
+public class ResultDatayou
 {
     public int maxYear;
 
