@@ -10,7 +10,7 @@ public class HowToPlaySceneManager : MonoBehaviour
     private const string SIMULATION_SCENE = "SimulationScene";
 
     // ==============================
-    // STEP 定義
+    // STEP 定義（Step5まで）
     // ==============================
     private enum HowToStep
     {
@@ -18,8 +18,7 @@ public class HowToPlaySceneManager : MonoBehaviour
         Step2 = 2,
         Step3 = 3,
         Step4 = 4,
-        Step5 = 5,
-        Step6 = 6
+        Step5 = 5
     }
 
     // ==============================
@@ -31,13 +30,9 @@ public class HowToPlaySceneManager : MonoBehaviour
     [SerializeField] private GameObject step3Panel;
     [SerializeField] private GameObject step4Panel;
     [SerializeField] private GameObject step5Panel;
-    [SerializeField] private GameObject step6Panel;
 
     private HowToStep currentStep;
 
-    // ==============================
-    // LifeCycle
-    // ==============================
     private void Start()
     {
         ShowStep(HowToStep.Step1);
@@ -55,7 +50,6 @@ public class HowToPlaySceneManager : MonoBehaviour
         step3Panel.SetActive(step == HowToStep.Step3);
         step4Panel.SetActive(step == HowToStep.Step4);
         step5Panel.SetActive(step == HowToStep.Step5);
-        step6Panel.SetActive(step == HowToStep.Step6);
     }
 
     // ==============================
@@ -63,9 +57,14 @@ public class HowToPlaySceneManager : MonoBehaviour
     // ==============================
     public void OnClickNextStep()
     {
-        if (currentStep < HowToStep.Step6)
+        if (currentStep < HowToStep.Step5)
         {
             ShowStep(currentStep + 1);
+        }
+        else
+        {
+            // Step5で「次へ」を押したらゲーム開始にするならこれ
+            OnClickStartGame();
         }
     }
 
@@ -80,17 +79,11 @@ public class HowToPlaySceneManager : MonoBehaviour
     // ==============================
     // Scene 遷移
     // ==============================
-    /// <summary>
-    /// タイトル画面へ戻る
-    /// </summary>
     public void OnClickBackToTitle()
     {
         SceneManager.LoadScene(TITLE_SCENE);
     }
 
-    /// <summary>
-    /// ゲーム開始（最終STEP専用）
-    /// </summary>
     public void OnClickStartGame()
     {
         SceneManager.LoadScene(SIMULATION_SCENE);
