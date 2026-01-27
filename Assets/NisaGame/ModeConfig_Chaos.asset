@@ -12,7 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5dad9e97b400abc4787a36623ca18b80, type: 3}
   m_Name: ModeConfig_Chaos
   m_EditorClassIdentifier: 
-  mode: 0
-  boomMonthlyDelta: 0.01
-  recessionMonthlyDelta: -0.01
-  shockMonthlyDelta: -0.05
+  boomMonthlyDelta: 0.5
+  recessionMonthlyDelta: -0.3
+  shockMonthlyDelta: -0.8
+  chanceAnyEvent: 1
+  chanceSecondEvent: 0.2
+  boomWeight: 0.5
+  recessionWeight: 0.38
+  shockWeight: 0.12
