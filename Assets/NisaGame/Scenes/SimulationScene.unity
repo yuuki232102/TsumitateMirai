@@ -3210,8 +3210,8 @@ GameObject:
   - component: {fileID: 833383563}
   - component: {fileID: 833383564}
   - component: {fileID: 833383565}
-  - component: {fileID: 833383566}
   - component: {fileID: 833383568}
+  - component: {fileID: 833383569}
   m_Layer: 5
   m_Name: LoadingOverlay
   m_TagString: Untagged
@@ -3271,11 +3271,19 @@ MonoBehaviour:
   fadeSeconds: 0.12
   dimPanelGraphic: {fileID: 1249508988}
   dimAlpha: 1
-  loadingBgmSource: {fileID: 833383566}
+  loadingBgmSource: {fileID: 833383569}
   loadingBgmClip: {fileID: 8300000, guid: e1dae398c0768d949aafa7b1a09104ee, type: 3}
   loopLoadingBgm: 1
   pauseTheseSources: []
---- !u!82 &833383566
+--- !u!222 &833383568
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 833383562}
+  m_CullTransparentMesh: 1
+--- !u!82 &833383569
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3285,8 +3293,8 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: e1dae398c0768d949aafa7b1a09104ee, type: 3}
-  m_PlayOnAwake: 0
+  m_audioClip: {fileID: 0}
+  m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1
   Loop: 0
@@ -3371,14 +3379,6 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!222 &833383568
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 833383562}
-  m_CullTransparentMesh: 1
 --- !u!1 &858651963
 GameObject:
   m_ObjectHideFlags: 0
@@ -8201,6 +8201,11 @@ MonoBehaviour:
   graphMonthlyToggle: {fileID: 186484618}
   logScrollView: {fileID: 0}
   logEntryPrefab: {fileID: 0}
+  chanceAnyEvent: 1
+  chanceSecondEvent: 0.2
+  boomWeight: 0.5
+  recessionWeight: 0.38
+  shockWeight: 0.12
   maxRiskChanges: 4
   penaltyLow: -0.001
   penaltyMiddle: -0.002
