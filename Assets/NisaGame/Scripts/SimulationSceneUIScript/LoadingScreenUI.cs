@@ -178,14 +178,21 @@ public class LoadingScreenUI : MonoBehaviour
         dimPanelGraphic.color = c;
     }
 
+    private const string KEY_SE_ON = "SeOn";
+
     private void PlayLoadingBgm()
     {
+        // ✅ ここを「SEトグル」で制御する
+        bool seOn = PlayerPrefs.GetInt(KEY_SE_ON, 1) == 1;
+        if (!seOn) return;
+
         if (loadingBgmSource == null || loadingBgmClip == null) return;
 
         loadingBgmSource.clip = loadingBgmClip;
         loadingBgmSource.loop = loopLoadingBgm;
         if (!loadingBgmSource.isPlaying) loadingBgmSource.Play();
     }
+
 
     private void StopLoadingBgm()
     {
@@ -215,4 +222,15 @@ public class LoadingScreenUI : MonoBehaviour
             s.UnPause();
         }
     }
+
+    // ★ 外部（設定画面など）から呼ぶ用
+    public void ForceStopLoadingSe()
+    {
+        // カチカチ音を止める（SE扱い）
+        if (loadingBgmSource != null)
+        {
+            loadingBgmSource.Stop();
+        }
+    }
+
 }
