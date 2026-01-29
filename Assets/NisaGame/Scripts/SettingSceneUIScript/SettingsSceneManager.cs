@@ -133,7 +133,7 @@ public class SettingsSceneManager : MonoBehaviour
 
         if (toggleFullScreen != null) toggleFullScreen.isOn = isFullScreen;
 
-        ApplyFullScreen(isFullScreen);
+        //ApplyFullScreen(isFullScreen);
     }
 
     private void SaveSettings()
