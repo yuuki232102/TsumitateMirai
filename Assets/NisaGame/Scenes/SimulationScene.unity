@@ -859,6 +859,7 @@ MonoBehaviour:
   diagonalThreshold: 0.35
   tendencyMin: -1
   tendencyMax: 1
+  lockUserInteraction: 1
 --- !u!114 &254395907
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1624,6 +1625,7 @@ RectTransform:
   - {fileID: 1454776229}
   - {fileID: 817262449}
   - {fileID: 262700301}
+  - {fileID: 1635021346}
   m_Father: {fileID: 416269198}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -2824,7 +2826,6 @@ RectTransform:
   - {fileID: 1458710146}
   - {fileID: 1220271065}
   - {fileID: 608751032}
-  - {fileID: 1635021346}
   - {fileID: 254395910}
   - {fileID: 833383563}
   m_Father: {fileID: 0}
@@ -3000,7 +3001,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &833383563
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4362,8 +4363,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd9bdbbe505e3e648ab60ccfd0eae853, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  content: {fileID: 1750645144}
-  logEntryPrefab: {fileID: 5878584954425773539, guid: d317fb58bba8cd2448150df1b1d97255, type: 3}
 --- !u!224 &1220271065
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5659,6 +5658,7 @@ MonoBehaviour:
   diagonalThreshold: 0.35
   tendencyMin: -1
   tendencyMax: 1
+  lockUserInteraction: 1
 --- !u!4 &1475724878
 Transform:
   m_ObjectHideFlags: 0
@@ -5805,7 +5805,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 890421103}
   m_FillRect: {fileID: 397605721}
   m_HandleRect: {fileID: 890421101}
@@ -6291,7 +6291,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1635021346
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6299,16 +6299,16 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1635021345}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 766099386}
+  m_Father: {fileID: 448415844}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 206, y: 98}
+  m_AnchoredPosition: {x: -683, y: 1}
   m_SizeDelta: {x: 500, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1635021347
@@ -6339,7 +6339,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "0\u5E74\u76EE\u306E\u6708\u5225\u63A8\u79FB"
+  m_text: "0\u5E74\u76EE\n"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 2e498d1c8094910479dc3e1b768306a4, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 2e498d1c8094910479dc3e1b768306a4, type: 2}
@@ -6348,8 +6348,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
-  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+    rgba: 4278190080
+  m_fontColor: {r: 0, g: 0, b: 0, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -6366,13 +6366,13 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 28
+  m_fontSizeBase: 28
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -6821,7 +6821,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 724021341}
   m_FillRect: {fileID: 1600379643}
   m_HandleRect: {fileID: 724021339}

@@ -854,6 +854,13 @@ public class SimulationSceneManager : MonoBehaviour
     {
         if (yearlyGraphRoot != null) yearlyGraphRoot.SetActive(showYearly);
         if (monthlyGraphRoot != null) monthlyGraphRoot.SetActive(!showYearly);
+
+        // ★追加：年別表示中は Slider_DetailYear を操作不可にする
+        if (detailYearSlider != null)
+            detailYearSlider.interactable = !showYearly;
+
+        // （任意）年別中はラベルを隠すなら以下もON
+        // if (detailYearLabel != null) detailYearLabel.gameObject.SetActive(!showYearly);
     }
 
     //========================
