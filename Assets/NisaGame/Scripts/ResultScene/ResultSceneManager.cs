@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -307,5 +307,16 @@ public class ResultSceneManager : MonoBehaviour
     {
         if (yearlyGraphRoot != null) yearlyGraphRoot.SetActive(showYearly);
         if (monthlyGraphRoot != null) monthlyGraphRoot.SetActive(!showYearly);
+
+        // ★追加：月別グラフのときだけスライダー操作可能
+        bool canUseYearSlider = !showYearly;
+        if (yearSelectSlider != null) yearSelectSlider.interactable = canUseYearSlider;
+
+        // （任意）ラベルも同様に見た目を変えたい場合
+        if (yearSelectLabel != null)
+        {
+            yearSelectLabel.alpha = canUseYearSlider ? 1f : 0.5f; // TMP_Textならalphaいけます
+        }
     }
+
 }
