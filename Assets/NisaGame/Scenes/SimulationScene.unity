@@ -7892,7 +7892,7 @@ MonoBehaviour:
   riskLowToggle: {fileID: 1812868292}
   riskMiddleToggle: {fileID: 1788136219}
   riskHighToggle: {fileID: 1788402823}
-  riskLabelText: {fileID: 1249378891}
+  riskLabelText: {fileID: 0}
   forecastMeterUI: {fileID: 254395906}
   loadingScreenUI: {fileID: 833383565}
   nextYearLoadingSeconds: 1.5
@@ -7918,6 +7918,9 @@ MonoBehaviour:
   boomMonthlyDelta: 0.02
   recessionMonthlyDelta: -0.02
   shockMonthlyDelta: -0.1
+  negativeEventReductionLow: 0.2
+  negativeEventReductionMiddle: 0.1
+  negativeEventReductionHigh: 0
   lowRiskNoiseAmp: 0.01
   middleRiskNoiseAmp: 0.02
   highRiskNoiseAmp: 0.04
@@ -7936,7 +7939,7 @@ MonoBehaviour:
   boomWeight: 0.5
   recessionWeight: 0.38
   shockWeight: 0.12
-  maxRiskChanges: 4
+  maxRiskChanges: 20
   penaltyLow: -0.001
   penaltyMiddle: -0.002
   penaltyHigh: -0.003

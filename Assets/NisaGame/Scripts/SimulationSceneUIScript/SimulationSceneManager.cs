@@ -94,6 +94,22 @@ public class SimulationSceneManager : MonoBehaviour
     [SerializeField] private float recessionMonthlyDelta = -0.01f;
     [SerializeField] private float shockMonthlyDelta = -0.05f;
 
+    //========================
+    //  ★追加：マイナスイベント低減（不景気・ショックのみ）
+    //========================
+    [Header("マイナスイベント低減（不景気・ショックのみ）")]
+    [Tooltip("低リスク時のマイナスイベント低減率（例：0.20 = 20%低減）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float negativeEventReductionLow = 0.20f;
+
+    [Tooltip("中リスク時のマイナスイベント低減率（例：0.10 = 10%低減）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float negativeEventReductionMiddle = 0.10f;
+
+    [Tooltip("高リスク時のマイナスイベント低減率（例：0.00 = 低減なし）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float negativeEventReductionHigh = 0.00f;
+
     [Header("イベント月のノイズ（平常は0固定）")]
     [SerializeField] private float lowRiskNoiseAmp = 0.01f;
     [SerializeField] private float middleRiskNoiseAmp = 0.02f;
@@ -660,6 +676,20 @@ public class SimulationSceneManager : MonoBehaviour
             default: eventDelta = 0f; break;
         }
 
+        //========================================================
+        // ★追加：マイナスイベント低減（不景気・ショックのみ）
+        // eventDelta がマイナスの時だけ軽減を掛ける
+        // 例：-0.05 を 20%低減 -> -0.04
+        //========================================================
+        if (eventDelta < 0f)
+        {
+            float reduction = GetNegativeEventReductionByRisk(currentRiskType);
+            reduction = Mathf.Clamp01(reduction);
+
+            // マイナス量を小さくする（=値を0方向へ寄せる）
+            eventDelta *= (1f - reduction);
+        }
+
         float noise = 0f;
         if (evType != EconomicEventType.None)
         {
@@ -671,6 +701,17 @@ public class SimulationSceneManager : MonoBehaviour
         }
 
         return baseMonthly + eventDelta + noise;
+    }
+
+    private float GetNegativeEventReductionByRisk(int riskType)
+    {
+        switch (riskType)
+        {
+            case 0: return negativeEventReductionLow;     // 低リスク：20%
+            case 1: return negativeEventReductionMiddle;  // 中リスク：10%
+            case 2: return negativeEventReductionHigh;    // 高リスク：0%
+            default: return 0f;
+        }
     }
 
     //========================
