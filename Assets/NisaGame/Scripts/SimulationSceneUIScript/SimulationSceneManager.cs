@@ -858,7 +858,7 @@ public class SimulationSceneManager : MonoBehaviour
     {
         if (detailYearLabel == null || detailYearSlider == null) return;
         int idx = Mathf.RoundToInt(detailYearSlider.value);
-        detailYearLabel.text = $"{idx + 1}年目の月別グラフ";
+        detailYearLabel.text = $"選択中:{idx + 1}年目";
     }
 
     //========================
