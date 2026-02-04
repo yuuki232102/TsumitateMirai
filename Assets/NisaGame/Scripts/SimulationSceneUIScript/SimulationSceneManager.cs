@@ -30,6 +30,25 @@ public class SimulationSceneManager : MonoBehaviour
     [SerializeField] private EconomicForecastMeterUI forecastMeterUI;
 
     //========================
+    //  ★方式A：次年予測（nextYearSchedule を先に作って表示 → 翌年処理に使う）
+    //========================
+    [Header("方式A：次年予測（表示→翌年処理に使用）")]
+    [Tooltip("『真実寄り』の強さ（0.65 = 65%）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float forecastAccuracyWeight = 0.65f;
+
+    [Tooltip("信頼度が低いときの傾向ノイズ量（例：0.6）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float tendencyNoiseAtLowConfidence = 0.6f;
+
+    [Tooltip("ショック警戒の閾値（ショック月割合）")]
+    [Range(0f, 1f)]
+    [SerializeField] private float shockWarnThreshold = 0.18f;
+
+    // 次年スケジュールを先に作って保持（予測表示→翌年のシミュレーションに使う）
+    private EconomicEventType[] nextYearScheduleCache;
+
+    //========================
     //  ロード画面（同一シーン内オーバーレイ：方式A）
     //========================
     [Header("ロード画面UI（方式A：同一シーン内オーバーレイ）")]
@@ -95,7 +114,7 @@ public class SimulationSceneManager : MonoBehaviour
     [SerializeField] private float shockMonthlyDelta = -0.05f;
 
     //========================
-    //  ★追加：マイナスイベント低減（不景気・ショックのみ）
+    //  ★マイナスイベント低減（不景気・ショックのみ）
     //========================
     [Header("マイナスイベント低減（不景気・ショックのみ）")]
     [Tooltip("低リスク時のマイナスイベント低減率（例：0.20 = 20%低減）")]
@@ -290,11 +309,11 @@ public class SimulationSceneManager : MonoBehaviour
         isUpdatingGraphToggles = false;
         ApplyGraphMode(true);
 
-        // 予測メーター初期化（ニュートラル）
-        if (forecastMeterUI != null) forecastMeterUI.SetForecast(0f, 0f, false);
-
         // UI 初期表示
         RefreshAllUI();
+
+        // ★方式A：最初に「1年目の予測」を作って表示（ここが重要）
+        PrepareNextYearForecast();
     }
 
     private void OnDestroy()
@@ -421,14 +440,24 @@ public class SimulationSceneManager : MonoBehaviour
     {
         if (currentYear >= maxYear) return;
 
+        // リスク確定
         ConfirmRiskChangeIfNeeded();
 
-        int startAsset = assetAtStartOfYear;
-        EconomicEventType[] eventsThisYear = GenerateEventsForOneYear();
-        UpdateForecastMeter(eventsThisYear);
+        //========================
+        // ★方式A：予測で表示していた「次年スケジュール」を今年の真実として使用
+        //========================
+        EconomicEventType[] eventsThisYear = nextYearScheduleCache;
+        if (eventsThisYear == null || eventsThisYear.Length == 0)
+        {
+            // 保険：何らかの理由で無い場合は生成
+            eventsThisYear = GenerateEventsForOneYear();
+        }
 
+        // ラベル
         string yearEventLabel = BuildYearEventLabel(eventsThisYear);
 
+        // 12ヶ月処理
+        int startAsset = assetAtStartOfYear;
         List<int> monthlyAssets = new List<int>(12);
         int asset = assetAtStartOfYear;
 
@@ -439,6 +468,7 @@ public class SimulationSceneManager : MonoBehaviour
 
             float monthlyRate = GetMonthlyRate(eventsThisYear[month]);
 
+            // リスク変更ペナルティ（次月1回だけ）
             if (pendingPenaltyMonths > 0)
             {
                 monthlyRate += pendingPenaltyRate;
@@ -450,21 +480,26 @@ public class SimulationSceneManager : MonoBehaviour
             monthlyAssets.Add(asset);
         }
 
+        // 年更新
         assetAtStartOfYear = asset;
         currentAsset = asset;
         currentYear++;
 
+        // 記録
         yearStartAssets.Add(startAsset);
         yearEndAssets.Add(asset);
         monthlyAssetsPerYear.Add(monthlyAssets);
         yearlyEvents.Add(eventsThisYear);
         yearEventLabels.Add(yearEventLabel);
 
+        // 年別グラフ
         if (graphUI != null)
             graphUI.AddPoint(currentYear, currentAsset, yearEventLabel);
 
+        // 月別グラフ（直近年）
         UpdateMonthlyGraphToLatestYear();
 
+        // 詳細年スライダー更新
         if (detailYearSlider != null)
         {
             detailYearSlider.maxValue = Mathf.Max(0, yearEndAssets.Count - 1);
@@ -483,6 +518,65 @@ public class SimulationSceneManager : MonoBehaviour
             if (goResultButton != null) goResultButton.interactable = true;
             AppendLog("15年が終了しました。『結果へ』ボタンから結果画面へ進めます。");
         }
+
+        //========================
+        // ★方式A：次の年の予測を作って表示（ここが重要）
+        //========================
+        PrepareNextYearForecast();
+    }
+
+    //========================
+    //  ★方式A：次年予測の作成・表示
+    //========================
+    private void PrepareNextYearForecast()
+    {
+        // もう最大年なら、予測はニュートラルに
+        if (currentYear >= maxYear)
+        {
+            nextYearScheduleCache = null;
+            if (forecastMeterUI != null) forecastMeterUI.SetForecast(0f, 0f, false);
+            return;
+        }
+
+        // 次年のスケジュール生成 → キャッシュ
+        nextYearScheduleCache = GenerateEventsForOneYear();
+
+        // スケジュールから信頼度を算出（固定値ではなく、年ごとに変動）
+        float confidence01 = CalcConfidenceFromSchedule(nextYearScheduleCache);
+
+        // 予測ロジック（UI非依存）
+        var r = EconomicForecastSystem.MakeForecast(
+            nextYearSchedule: nextYearScheduleCache,
+            confidence01: confidence01,
+            forecastAccuracyWeight: forecastAccuracyWeight,
+            tendencyNoiseAtLowConfidence: tendencyNoiseAtLowConfidence,
+            shockWarnThreshold: shockWarnThreshold
+        );
+
+        // UI反映（表示は confidence01 を使う：MakeForecast内で加工していないため）
+        if (forecastMeterUI != null)
+            forecastMeterUI.SetForecast(r.tendency, confidence01, r.shockWarning);
+    }
+
+    private float CalcConfidenceFromSchedule(EconomicEventType[] schedule)
+    {
+        if (schedule == null || schedule.Length == 0) return 0f;
+
+        int boom = 0, rec = 0, shock = 0;
+        for (int i = 0; i < schedule.Length; i++)
+        {
+            if (schedule[i] == EconomicEventType.Boom) boom++;
+            else if (schedule[i] == EconomicEventType.Recession) rec++;
+            else if (schedule[i] == EconomicEventType.Shock) shock++;
+        }
+
+        // イベント密度（イベント月が多いほど “予測の手がかりが多い”）
+        float density = Mathf.Clamp01((boom + rec + shock) / (float)schedule.Length);
+
+        // ショックが含まれると警戒しやすい（任意の補正）
+        float shockBoost = (shock > 0) ? 0.15f : 0f;
+
+        return Mathf.Clamp01(density + shockBoost);
     }
 
     //========================
@@ -585,38 +679,6 @@ public class SimulationSceneManager : MonoBehaviour
     }
 
     //========================
-    //  予測メーター
-    //========================
-    private void UpdateForecastMeter(EconomicEventType[] eventsThisYear)
-    {
-        if (forecastMeterUI == null) return;
-
-        if (eventsThisYear == null || eventsThisYear.Length == 0)
-        {
-            forecastMeterUI.SetForecast(0f, 0f, false);
-            return;
-        }
-
-        int boom = 0, rec = 0, shock = 0;
-        for (int i = 0; i < eventsThisYear.Length; i++)
-        {
-            if (eventsThisYear[i] == EconomicEventType.Boom) boom++;
-            else if (eventsThisYear[i] == EconomicEventType.Recession) rec++;
-            else if (eventsThisYear[i] == EconomicEventType.Shock) shock++;
-        }
-
-        float score = (boom * 1f) + (rec * -1f) + (shock * -2f);
-        float tendency = Mathf.Clamp(score / 12f, -1f, 1f);
-
-        float density = Mathf.Clamp01((boom + rec + shock) / 12f);
-        float shockBoost = (shock > 0) ? 0.15f : 0f;
-        float confidence = Mathf.Clamp01(density + shockBoost);
-
-        bool shockWarning = (shock > 0);
-        forecastMeterUI.SetForecast(tendency, confidence, shockWarning);
-    }
-
-    //========================
     //  グラフ初期化
     //========================
     private void InitializeGraphs()
@@ -629,6 +691,7 @@ public class SimulationSceneManager : MonoBehaviour
 
         if (monthlyGraphUI != null)
         {
+            // 既存の実装に合わせて
             monthlyGraphUI.SetMonthlyData(null, false, null);
         }
     }
@@ -661,12 +724,14 @@ public class SimulationSceneManager : MonoBehaviour
     //========================
     private float GetMonthlyRate(EconomicEventType evType)
     {
+        // 年率（リスク別）→ 月利へ
         float yearly = middleRiskReturnRate;
         if (currentRiskType == 0) yearly = lowRiskReturnRate;
         else if (currentRiskType == 2) yearly = highRiskReturnRate;
 
         float baseMonthly = Mathf.Pow(1f + yearly, 1f / 12f) - 1f;
 
+        // イベント補正
         float eventDelta = 0f;
         switch (evType)
         {
@@ -676,20 +741,14 @@ public class SimulationSceneManager : MonoBehaviour
             default: eventDelta = 0f; break;
         }
 
-        //========================================================
-        // ★追加：マイナスイベント低減（不景気・ショックのみ）
-        // eventDelta がマイナスの時だけ軽減を掛ける
-        // 例：-0.05 を 20%低減 -> -0.04
-        //========================================================
+        // ★マイナスイベント低減（不景気・ショックのみ）
         if (eventDelta < 0f)
         {
-            float reduction = GetNegativeEventReductionByRisk(currentRiskType);
-            reduction = Mathf.Clamp01(reduction);
-
-            // マイナス量を小さくする（=値を0方向へ寄せる）
-            eventDelta *= (1f - reduction);
+            float reduction = Mathf.Clamp01(GetNegativeEventReductionByRisk(currentRiskType));
+            eventDelta *= (1f - reduction); // 例：-0.05 を 20%低減 -> -0.04
         }
 
+        // イベント月ノイズ（平常は0）
         float noise = 0f;
         if (evType != EconomicEventType.None)
         {
@@ -771,7 +830,7 @@ public class SimulationSceneManager : MonoBehaviour
         float sum = wBoom + wRec + wShock;
         if (sum <= 0f)
         {
-            // 事故対策：全部0なら「不景気」に寄せる（ここは好みでBoomでもOK）
+            // 事故対策：全部0なら「不景気」に寄せる
             return EconomicEventType.Recession;
         }
 
@@ -896,7 +955,7 @@ public class SimulationSceneManager : MonoBehaviour
         if (yearlyGraphRoot != null) yearlyGraphRoot.SetActive(showYearly);
         if (monthlyGraphRoot != null) monthlyGraphRoot.SetActive(!showYearly);
 
-        // ★追加：年別表示中は Slider_DetailYear を操作不可にする
+        // ★年別表示中は Slider_DetailYear を操作不可にする
         if (detailYearSlider != null)
             detailYearSlider.interactable = !showYearly;
 
